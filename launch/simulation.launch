@@ -1,0 +1,12 @@
+<launch>
+  <arg name="robotName" default="COSTAR_HUSKY"/>
+  <arg name="robotConfig" default="COSTAR_HUSKY_SENSOR_CONFIG_1"/>
+  <arg name="worldName" default="simple_cave_01"/>
+  <arg name="circuit" default="cave" />
+
+  <node pkg="subt_exploration" type="run_simulation.sh" args="cave_circuit.ign circuit:=$(arg circuit) \
+   worldName:=$(arg worldName) \
+   robotName1:=$(arg robotName) \
+   robotConfig1:=$(arg robotConfig)" 
+   name="subt_sim" output="screen" />
+</launch>

@@ -39,9 +39,5 @@ if [ "$1" = "-h" ]; then
 else 
     # cd ~/subt
     ~/subt/subt/docker/run.bash osrf/subt-virtual-testbed:latest \
-   cave_circuit.ign \
-   circuit:=cave \
-   worldName:=simple_cave_01 \
-   robotName1:=X1 \
-   robotConfig1:=X1_SENSOR_CONFIG_1 "$@"
+    "$@"
 fi
