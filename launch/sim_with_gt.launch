@@ -1,10 +1,10 @@
 <launch>
     <include file="$(find subt_exploration)/launch/simulation.launch" />
-    <include file="$(find atwifr_gazebo)/launch/timed_roslaunch.launch">
+    <!-- <include file="$(find atwifr_gazebo)/launch/timed_roslaunch.launch">
         <arg name="time" value="20" />
         <arg name="pkg" value="subt_exploration" />
         <arg name="file" value="icp.launch" />
-    </include>
-    <!-- <include file="$(find subt_exploration)/launch/icp.launch" /> -->
+    </include> -->
+  <node pkg="subt_exploration" type="odom_to_tf_transform" name="odom_to_tf_transform_node" output="screen"/>
     
 </launch>

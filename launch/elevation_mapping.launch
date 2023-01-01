@@ -1,5 +1,8 @@
 <launch>
   <!-- Elevation mapping node -->
+
+  <include file="$(find subt_exploration)/launch/filter_points.launch" />
+
   <node pkg="elevation_mapping" type="elevation_mapping" name="elevation_mapping" output="screen">
     <rosparam command="load" file="$(find subt_exploration)/config/mapping/elevation_config.yaml" />
     <!-- <rosparam command="load" file="$(find atwifr_bringup)/param/elevation_config/map.yaml" /> -->
@@ -7,7 +10,7 @@
   </node>
 
   <!-- Setup a transform between the world and the robot -->
-  <node pkg="tf" type="static_transform_publisher" name="world_to_robot" args="0.0 0.0 0 0 0.0 0 /map /odom 100"/>
+  <node pkg="tf" type="static_transform_publisher" name="world_to_robot" args="0.0 0.0 0 0 0.0 0 /map /COSTAR_HUSKY/odom 100"/>
 
   <!-- Launch visualizations for the resulting elevation map -->
   <include file="$(find elevation_mapping_demos)/launch/visualization.launch" />

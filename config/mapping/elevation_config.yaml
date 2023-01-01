@@ -1,28 +1,29 @@
 
-map_frame_id:                               map
+map_frame_id:                               COSTAR_HUSKY/odom
 # robot_base_frame_id:                        base_link
-robot_base_frame_id:                        COSTAR_HUSKY/base_link
+robot_base_frame_id:                        COSTAR_HUSKY
 robot_pose_with_covariance_topic: "" # Leaving this empty skipps pose covariance updates.
 robot_pose_cache_size:                      200
 input_sources:
   front: # A name to identify the input source
     type: pointcloud # Supported types: pointcloud
-    topic: /kiss_icp/kiss_icp_node/velodyne_pcl
+    topic: /cropbox/output #/COSTAR_HUSKY/points #/kiss_icp/kiss_icp_node/velodyne_pcl
     queue_size: 1
     publish_on_update: true # Wheter to publish the elevation map after a callback from this source.
+    # sensor_cutoff_max_depth:   5.0
     sensor_processor:
       type: perfect
+      ignore_points_above:       1.0
+      # cutoff_max_depth:   5.0
       
 
-track_point_frame_id:                       map
+track_point_frame_id:                       COSTAR_HUSKY/odom
 track_point_x:                              0.0
 track_point_y:                              0.0
 track_point_z:                              0.0
 min_update_rate:                            2.0
 time_tolerance:                             1.0
 time_offset_for_point_cloud:                0.0
-sensor_processor/ignore_points_above:       -2.0
-sensor_processor/sensor_cutoff_max_depth:   0.1
 # robot_motion_map_update/covariance_scale:   0.01
 
 # Map.
@@ -48,4 +49,4 @@ length_in_x_init_submap:                    5
 length_in_y_init_submap:                    5
 init_submap_height_offset:                  0.01
 init_submap_variance:                       0.01
-target_frame_init_submap:                   COSTAR_HUSKY/base_link
+target_frame_init_submap:                   COSTAR_HUSKY

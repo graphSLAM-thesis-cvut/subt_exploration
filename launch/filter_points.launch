@@ -1,0 +1,20 @@
+<launch>
+  <!-- Elevation mapping node -->
+
+    <node pkg="nodelet" type="nodelet" name="pcl_manager" args="manager" output="screen" />
+
+    <!-- Run a passthrough filter to clean NaNs -->
+    <node pkg="nodelet" type="nodelet" name="cropbox" args="load pcl/CropBox /pcl_manager" output="screen">
+      <remap from="~input" to="/COSTAR_HUSKY/points" />
+      <rosparam>
+        min_x: -10.0
+        max_x: 10.0
+        min_y: -10.0
+        max_y: 10.0
+      </rosparam>
+    </node>
+
+  <!-- Launch RViz with the demo configuration -->
+  <!-- <node name="rviz" pkg="rviz" type="rviz" args="-d $(find elevation_mapping_demos)/rviz/elevation_map_visualization.rviz" /> -->
+
+</launch>
