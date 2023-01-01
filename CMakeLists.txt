@@ -11,6 +11,8 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
+  tf
+  nav_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -118,6 +120,12 @@ catkin_package(
 include_directories(
 # include
   ${catkin_INCLUDE_DIRS}
+)
+
+
+add_executable(odom_to_tf_transform src/odom_to_tf.cpp)
+target_link_libraries(odom_to_tf_transform
+  ${catkin_LIBRARIES}
 )
 
 install(PROGRAMS src/run_simulation.sh
