@@ -27,8 +27,8 @@ time_offset_for_point_cloud:                0.0
 # robot_motion_map_update/covariance_scale:   0.01
 
 # Map.
-length_in_x:                                100
-length_in_y:                                100
+length_in_x:                                20
+length_in_y:                                20
 position_x:                                 0.0
 position_y:                                 0.0
 resolution:                                 0.2

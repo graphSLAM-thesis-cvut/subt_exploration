@@ -1,0 +1,7 @@
+<launch>
+    <node pkg="frontier_exploration" type="frontier_exploration_node" respawn="false" name="explore" output="screen">
+        <rosparam command="load" file="$(find subt_exploration)/config/exploration/params.yaml"/>
+        <!-- <remap from="/projected_map" to="/map"/> -->
+        <remap from="/costmap" to="/trav_map"/>
+    </node>
+</launch>

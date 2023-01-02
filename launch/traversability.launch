@@ -1,0 +1,11 @@
+<!-- <launch>
+  <env name="ROSCONSOLE_CONFIG_FILE" value="$(find traversability_estimation)/config/rosconsole.conf"/>
+  <node pkg="traversability_estimation" type="traversability_estimation_node" name="traversability_estimation" output="screen">
+    <rosparam command="load" file="$(find subt_exploration)/config/traversability/robot.yaml"/>
+    <rosparam command="load" file="$(find subt_exploration)/config/traversability/robot_footprint_parameter.yaml"/>
+    <rosparam command="load" file="$(find subt_exploration)/config/traversability/robot_filter_parameter.yaml"/>
+  </node>
+</launch> -->
+<launch>
+  <node pkg="subt_exploration" type="traversability_estimation_node" name="gridmap_to_occupancy" output="screen"/>
+</launch> 
