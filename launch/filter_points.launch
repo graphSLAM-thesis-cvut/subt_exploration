@@ -2,16 +2,16 @@
   <!-- Elevation mapping node -->
 
     <node pkg="nodelet" type="nodelet" name="pcl_manager" args="manager" output="screen" />
+    <arg name="points_window_size" default="4.0"/>
 
     <!-- Run a passthrough filter to clean NaNs -->
     <node pkg="nodelet" type="nodelet" name="cropbox" args="load pcl/CropBox /pcl_manager" output="screen">
-      <remap from="~input" to="/COSTAR_HUSKY/points" />
-      <rosparam>
-        min_x: -10.0
-        max_x: 10.0
-        min_y: -10.0
-        max_y: 10.0
-      </rosparam>
+      <!-- <remap from="~input" to="/COSTAR_HUSKY/points" /> -->
+      <remap from="~input" to="/kiss_icp/kiss_icp_node/velodyne_pcl" />
+      <param name="min_x" value="-$(arg points_window_size)"/>
+      <param name="max_x"  value="$(arg points_window_size)"/>
+      <param name="min_y" value="-$(arg points_window_size)"/>
+      <param name="max_y"  value="$(arg points_window_size)"/>
     </node>
 
   <!-- Launch RViz with the demo configuration -->

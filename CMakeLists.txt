@@ -13,6 +13,10 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   tf
   nav_msgs
+  grid_map_core
+  grid_map_ros
+  grid_map_msgs
+  costmap_2d
 )
 
 ## System dependencies are found with CMake's conventions
@@ -117,9 +121,23 @@ catkin_package(
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
+catkin_package(
+  INCLUDE_DIRS
+  LIBRARIES
+   grid_map_ros
+  CATKIN_DEPENDS
+    grid_map_core
+    grid_map_ros
+    grid_map_msg
+    costmap_2d
+    tf
+  DEPENDS
+)
+
 include_directories(
-# include
-  ${catkin_INCLUDE_DIRS}
+  SYSTEM
+    ${catkin_INCLUDE_DIRS}
+    ${EIGEN3_INCLUDE_DIR}
 )
 
 
@@ -128,8 +146,21 @@ target_link_libraries(odom_to_tf_transform
   ${catkin_LIBRARIES}
 )
 
+add_executable(gridmap_to_occupancy src/gridmap_to_occupancy.cpp)
+
+
 install(PROGRAMS src/run_simulation.sh
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
+find_package(Eigen3 REQUIRED)
+
+include_directories(${EIGEN3_INCLUDE_DIR})
+
+add_definitions(${EIGEN_DEFINITIONS})
+target_link_libraries(gridmap_to_occupancy
+  ${catkin_LIBRARIES}
+  ${EIGEN3_INCLUDE_DIR}
 )
 
 ## Declare a C++ library

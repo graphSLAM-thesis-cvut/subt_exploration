@@ -20,7 +20,7 @@ deskew: False
 publish_odom_tf: True # if publish a tf to the estimation frame
 
 frames: 
-  global_frame: "odom"          # name of the frame where the robot was first
+  global_frame: "COSTAR_HUSKY/odom"          # name of the frame where the robot was first
   sensor_frame: "COSTAR_HUSKY/base_link/front_laser"      # real sensor frame
   estimation_frame: "COSTAR_HUSKY" # the frame which pose is estimated
 
