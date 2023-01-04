@@ -10,11 +10,9 @@ input_sources:
     topic: /cropbox/output #/COSTAR_HUSKY/points #/kiss_icp/kiss_icp_node/velodyne_pcl
     queue_size: 1
     publish_on_update: true # Wheter to publish the elevation map after a callback from this source.
-    # sensor_cutoff_max_depth:   5.0
     sensor_processor:
       type: perfect
       ignore_points_above:       1.0
-      # cutoff_max_depth:   5.0
       
 
 track_point_frame_id:                       COSTAR_HUSKY/odom
@@ -27,8 +25,8 @@ time_offset_for_point_cloud:                0.0
 # robot_motion_map_update/covariance_scale:   0.01
 
 # Map.
-length_in_x:                                20
-length_in_y:                                20
+length_in_x:                                50
+length_in_y:                                50
 position_x:                                 0.0
 position_y:                                 0.0
 resolution:                                 0.2
@@ -41,12 +39,13 @@ fused_map_publishing_rate:                  10
 enable_visibility_cleanup:                  false
 visibility_cleanup_rate:                    1.0
 scanning_duration:                          1.0
+increase_height_alpha:                      0.95
 
 # Init submap
 initialize_elevation_map:                   true
 initialization_method:                      0
-length_in_x_init_submap:                    5
-length_in_y_init_submap:                    5
+length_in_x_init_submap:                    6
+length_in_y_init_submap:                    6
 init_submap_height_offset:                  -0.12
 init_submap_variance:                       0.01
 target_frame_init_submap:                   COSTAR_HUSKY

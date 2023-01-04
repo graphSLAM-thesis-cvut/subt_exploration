@@ -34,10 +34,14 @@ showHelp() {
     echo '</launch>'
 }
 
-if [ "$1" = "-h" ]; then
+if [ $# -lt 3 -o "$1" = "-h" ]; then
     showHelp
 else 
-    # cd ~/subt
-    ~/subt/subt/docker/run.bash osrf/subt-virtual-testbed:latest-dynamic \
-    "$@"
+    echo "start wait for $1 seconds"
+    sleep $1
+    echo "end wait for $1 seconds"
+
+    shift # The sleep time is droped
+        echo "now running 'roslaunch $@'"
+    roslaunch "$@"
 fi

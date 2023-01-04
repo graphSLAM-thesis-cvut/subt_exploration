@@ -146,6 +146,11 @@ target_link_libraries(odom_to_tf_transform
   ${catkin_LIBRARIES}
 )
 
+# add_executable(tf_broadcaster src/tf_broadcaster.cpp)
+# target_link_libraries(tf_broadcaster
+#   ${catkin_LIBRARIES}
+# )
+
 add_executable(gridmap_to_occupancy src/gridmap_to_occupancy.cpp)
 
 
@@ -161,6 +166,10 @@ add_definitions(${EIGEN_DEFINITIONS})
 target_link_libraries(gridmap_to_occupancy
   ${catkin_LIBRARIES}
   ${EIGEN3_INCLUDE_DIR}
+)
+
+install(PROGRAMS scripts/timed_roslaunch.sh
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
 ## Declare a C++ library

@@ -18,7 +18,7 @@ gain_scale: 1.0
 
 # Consider a frontier worthy of pursuit only if
 # number_of_points_in_frontier * map_resolution > minimum_frontier_size
-minimum_frontier_size: 0.5
+minimum_frontier_size: 1.0
 
 
 # Publish RViz markers to visualise frontiers

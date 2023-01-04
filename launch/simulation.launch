@@ -7,6 +7,10 @@
   <node pkg="subt_exploration" type="run_simulation.sh" args="cave_circuit.ign circuit:=$(arg circuit) \
    worldName:=$(arg worldName) \
    robotName1:=$(arg robotName) \
-   robotConfig1:=$(arg robotConfig)" 
+   robotConfig1:=$(arg robotConfig) \
+   enableGroundTruth:=true \
+   use_sim_time:=false" 
    name="subt_sim" output="screen" />
+    <!-- <node pkg="tf" type="static_transform_publisher" name="baselink_tf" args="0 0 0 0 0 0 COSTAR_HUSKY/odom world 100" /> -->
+
 </launch>

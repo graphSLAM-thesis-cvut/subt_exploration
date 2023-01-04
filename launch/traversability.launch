@@ -7,5 +7,7 @@
   </node>
 </launch> -->
 <launch>
-  <node pkg="subt_exploration" type="traversability_estimation_node" name="gridmap_to_occupancy" output="screen"/>
+  <node pkg="subt_exploration" type="gridmap_to_occupancy" name="traversability_estimation_node" output="screen">
+    <param name="slope_th" value="0.1"/>
+  </node>
 </launch> 

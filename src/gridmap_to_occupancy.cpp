@@ -13,11 +13,16 @@ static std::string topic = "/elevation_mapping/elevation_map";
 
 ros::Publisher m_mapPub;
 ros::Publisher travPub;
+double slope_th = 0.1;
+bool start = true;
 
 
 
 void gridmap_callback(const grid_map_msgs::GridMap& msg){
-  std::cout << "Got a Gridmap!" << std::endl;
+  if (start){
+    std::cout << "Got a first Gridmap! Publishing Traversability" << std::endl;
+    start = false;
+  }
   grid_map::GridMap gridMap;
   nav_msgs::OccupancyGrid occupancyGrid;
   grid_map::GridMapRosConverter::fromMessage(msg, gridMap);
@@ -42,7 +47,7 @@ void gridmap_callback(const grid_map_msgs::GridMap& msg){
         float diff2 = std::fabs(v - v_right);
         float slope = std::sqrt(diff1*diff1 + diff2*diff2);
         int value = 0;
-        if (slope > 0.1){
+        if (slope > slope_th){
           value = 100;
         }
         occupancyGrid.data[index] = value;
@@ -64,8 +69,11 @@ int main(int argc, char **argv){
   ros::NodeHandle private_nh("~");
 
   private_nh.getParam("gridmap_topic", topic);
+  private_nh.getParam("slope_th", slope_th);
 
   std::cout << "Gridmap Topic: " << topic << std::endl;
+  std::cout << "Slope threshhold: " << slope_th << std::endl;
+
 
   m_mapPub = nh.advertise<nav_msgs::OccupancyGrid>("projected_map", 5);
   travPub = nh.advertise<nav_msgs::OccupancyGrid>("trav_map", 5);
