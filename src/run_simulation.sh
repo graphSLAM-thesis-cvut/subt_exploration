@@ -1,43 +1,107 @@
-#!/bin/bash          
+#!/usr/bin/env bash
 
-# BSD 3-Clause License
-# https://opensource.org/licenses/BSD-3-Clause
 #
-# Copyright (c) 2016, Masaru Morita
-# All rights reserved.
-
-# --------------------------------------------------------------------
-# Script to delay the launch of a roslaunch file
+# Copyright (C) 2018 Open Source Robotics Foundation
 #
-# Usage: sh timed_roslaunch.sh [number of seconds to delay] [rospkg] [roslaunch file]
-# --------------------------------------------------------------------
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+#
 
-showHelp() {
-    echo 
-    echo "This script can delay the launch of a roslaunch file"
-    echo "Make sure that the file is executable (chmod +x timed_roslaunch.sh)"
-    echo 
-    echo "Run it from command line:"
-    echo 
-    echo "Usage: ./script/timed_roslaunch.sh [number of seconds to delay] [rospkg] [roslaunch file] [arguments (optional)]"
-    echo "Or: rosrun timed_roslaunch timed_roslaunch.sh [number of seconds to delay] [rospkg] [roslaunch file] [arguments (optional)]"
-    echo "Example: rosrun timed_roslaunch timed_roslaunch.sh 2 turtlebot_navigation amcl_demo.launch initial_pose_x:=17.0 initial_pose_y:=17.0"
-    echo 
-    echo "Or run it from another roslaunch file:"
-    echo 
-    echo '<launch>'
-    echo '  <arg name="initial_pose_y" default="17.0" />'
-    echo '  <node pkg="timed_launch" type="timed_roslaunch.sh"'
-    echo '    args="2 turtlebot_navigation amcl_demo.launch initial_pose_x:=17.0 initial_pose_y:=$(arg initial_pose_y)"'
-    echo '    name="timed_roslaunch" output="screen">'
-    echo '  </node>'
-    echo '</launch>'
-}
+# Runs a docker container with the image created by build.bash
+# Requires:
+#   docker
+#   nvidia-docker
+#   an X server
+# Recommended:
+#   A joystick mounted to /dev/input/js0 or /dev/input/js1
 
-if [ "$1" = "-h" ]; then
-    showHelp
-else 
-    # cd ~/subt
-    ~/subt/subt/docker/run.bash osrf/subt-virtual-testbed:latest-dynamic \
-    "$@"
+if [ $# -lt 1 ]
+then
+    echo "Usage: $0 <docker image> [<dir with workspace> ...]"
+    exit 1
 fi
+
+#IMG=$(basename $1)
+IMG=$1
+
+ARGS=("$@")
+
+# Make sure processes in the container can connect to the x server
+# Necessary so gazebo can create a context for OpenGL rendering (even headless)
+XAUTH=/tmp/.docker.xauth
+if [ ! -f $XAUTH ]
+then
+    xauth_list=$(xauth nlist $DISPLAY)
+    xauth_list=$(sed -e 's/^..../ffff/' <<< "$xauth_list")
+    if [ ! -z "$xauth_list" ]
+    then
+        echo "$xauth_list" | xauth -f $XAUTH nmerge -
+    else
+        touch $XAUTH
+    fi
+    chmod a+r $XAUTH
+fi
+
+DOCKER_OPTS=
+
+# Get the current version of docker-ce
+# Strip leading stuff before the version number so it can be compared
+DOCKER_VER=$(dpkg-query -f='${Version}' --show docker-ce | sed 's/[0-9]://')
+if dpkg --compare-versions 19.03 gt "$DOCKER_VER"
+then
+    echo "Docker version is less than 19.03, using nvidia-docker2 runtime"
+    if ! dpkg --list | grep nvidia-docker2
+    then
+        echo "Please either update docker-ce to a version greater than 19.03 or install nvidia-docker2"
+	exit 1
+    fi
+    DOCKER_OPTS="$DOCKER_OPTS --runtime=nvidia"
+else
+    DOCKER_OPTS="$DOCKER_OPTS --gpus all"
+fi
+
+# Share your vim settings.
+VIMRC=~/.vimrc
+if [ -f $VIMRC ]
+then
+  DOCKER_OPTS="$DOCKER_OPTS -v $VIMRC:/home/developer/.vimrc:ro"
+fi
+
+# Prevent executing "docker run" when xauth failed.
+if [ ! -f $XAUTH ]
+then
+  echo "[$XAUTH] was not properly created. Exiting..."
+  exit 1
+fi
+
+# Mount extra volumes if needed.
+# E.g.:
+# -v "/opt/sublime_text:/opt/sublime_text" \
+
+# Developer note: If you are running docker in cloudsim then make sure to add
+# -e IGN_PARTITION=subt to the following command.
+docker run -it \
+  -e DISPLAY \
+  -e QT_X11_NO_MITSHM=1 \
+  -e XAUTHORITY=$XAUTH \
+  -v "$XAUTH:$XAUTH" \
+  -v "/tmp/.X11-unix:/tmp/.X11-unix" \
+  -v "/etc/localtime:/etc/localtime:ro" \
+  -v "/dev/input:/dev/input" \
+  --network host \
+  --rm \
+  --privileged \
+  --security-opt seccomp=unconfined \
+  $DOCKER_OPTS \
+  $IMG \
+  ${@:2}

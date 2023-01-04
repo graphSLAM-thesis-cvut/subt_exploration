@@ -4,7 +4,7 @@
   <arg name="worldName" default="simple_cave_01"/>
   <arg name="circuit" default="cave" />
 
-  <node pkg="subt_exploration" type="run_simulation.sh" args="cave_circuit.ign circuit:=$(arg circuit) \
+  <node pkg="subt_exploration" type="run_simulation.sh" args="osrf/subt-virtual-testbed:latest-dynamic cave_circuit.ign circuit:=$(arg circuit) \
    worldName:=$(arg worldName) \
    robotName1:=$(arg robotName) \
    robotConfig1:=$(arg robotConfig) \
