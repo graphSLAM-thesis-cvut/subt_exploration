@@ -5,6 +5,7 @@
 #include <grid_map_msgs/GridMap.h>
 #include <nav_msgs/OccupancyGrid.h>
 #include <grid_map_ros/GridMapRosConverter.hpp>
+#include "grid_map_core/GridMapMath.hpp"
 
 // Eigen
 #include <Eigen/Core>
@@ -30,19 +31,20 @@ void gridmap_callback(const grid_map_msgs::GridMap& msg){
   m_mapPub.publish(occupancyGrid);
   Eigen::MatrixXf m = gridMap.get("elevation");
   Eigen::MatrixXf m1(m);
-  int a = 0;
-
   int nCells = m.cols()*m.rows();
   for (int i = 1; i < m.cols() - 1 ; i++)
   {
     for (int j = 1; j < m.rows() - 1; j++)
     {
-      a++;
-      float v = m.coeff(i, j);
       size_t index = m.cols()*m.rows() - (j*m.rows() + i) - 1;
+      grid_map::Index buffer_index =  grid_map::getBufferIndexFromIndex(grid_map::Index(i, j), gridMap.getSize(), gridMap.getStartIndex());
+      float v = m.coeff(buffer_index[0], buffer_index[1]);
       if (!isnan(v)){
-        float v_up = m.coeff(i+1, j);
-        float v_right = m.coeff(i, j+1);
+
+        grid_map::Index buffer_index_up =  grid_map::getBufferIndexFromIndex(grid_map::Index(i+1, j), gridMap.getSize(), gridMap.getStartIndex());
+        float v_up = m.coeff(buffer_index_up[0], buffer_index_up[1]);
+        grid_map::Index buffer_index_right =  grid_map::getBufferIndexFromIndex(grid_map::Index(i, j+1), gridMap.getSize(), gridMap.getStartIndex());
+        float v_right = m.coeff(buffer_index_right[0], buffer_index_right[1]);
         float diff1 = std::fabs(v - v_up);
         float diff2 = std::fabs(v - v_right);
         float slope = std::sqrt(diff1*diff1 + diff2*diff2);

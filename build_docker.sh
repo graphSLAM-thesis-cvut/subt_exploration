@@ -1,0 +1,1 @@
+docker build . -t osrf/subt-virtual-testbed:latest-dynamic

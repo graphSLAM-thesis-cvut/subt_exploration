@@ -60,12 +60,20 @@
   <exec_depend>nav_msgs</exec_depend>
   <exec_depend>std_msgs</exec_depend>
 
-  <depend>costmap_2d</depend>
+  <!-- <depend>costmap_2d</depend> -->
   <depend>tf</depend>
   <depend>eigen</depend>
   <depend>grid_map_core</depend>
   <depend>grid_map_ros</depend>
   <depend>grid_map_msg</depend>
+  <depend>grid_map</depend>
+  <!-- movebase dependencies -->
+  <depend>move_base</depend>
+  <depend>global_planner</depend>
+  <depend>base_local_planner</depend>
+  <depend>dwa_local_planner</depend>
+  <depend>nav_core</depend>
+  <depend>frontier_exploration</depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

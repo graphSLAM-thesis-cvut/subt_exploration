@@ -16,8 +16,8 @@ input_sources:
       
 
 track_point_frame_id:                       COSTAR_HUSKY/odom
-track_point_x:                              0.0
-track_point_y:                              0.0
+track_point_x:                              40
+track_point_y:                              -10
 track_point_z:                              0.0
 min_update_rate:                            4.0
 time_tolerance:                             1.0
@@ -27,8 +27,8 @@ time_offset_for_point_cloud:                0.0
 # Map.
 length_in_x:                                50
 length_in_y:                                50
-position_x:                                 0.0
-position_y:                                 0.0
+position_x:                                 0
+position_y:                                 0
 resolution:                                 0.2
 min_variance:                               0.0001
 max_variance:                               0.05

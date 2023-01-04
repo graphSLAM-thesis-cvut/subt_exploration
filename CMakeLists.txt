@@ -16,7 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
   grid_map_core
   grid_map_ros
   grid_map_msgs
-  costmap_2d
+  # costmap_2d
 )
 
 ## System dependencies are found with CMake's conventions
@@ -129,7 +129,7 @@ catkin_package(
     grid_map_core
     grid_map_ros
     grid_map_msg
-    costmap_2d
+    # costmap_2d
     tf
   DEPENDS
 )
@@ -169,6 +169,10 @@ target_link_libraries(gridmap_to_occupancy
 )
 
 install(PROGRAMS scripts/timed_roslaunch.sh
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
+install(PROGRAMS scripts/timed_command.sh
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
