@@ -62,6 +62,7 @@
 
   <!-- <depend>costmap_2d</depend> -->
   <depend>tf</depend>
+  <depend>tf_conversions</depend>
   <depend>eigen</depend>
   <depend>grid_map_core</depend>
   <depend>grid_map_ros</depend>
@@ -74,6 +75,11 @@
   <depend>dwa_local_planner</depend>
   <depend>nav_core</depend>
   <depend>frontier_exploration</depend>
+  <depend>teleop_twist_keyboard</depend>
+  <depend>pcl_conversions</depend>
+  <depend>pcl_ros</depend>
+  <depend>libpcl-all-dev</depend>
+  <depend>libpcl-all</depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

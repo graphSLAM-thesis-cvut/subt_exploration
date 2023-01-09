@@ -1,0 +1,1 @@
+rosbag record /clock /COSTAR_HUSKY/points /tf /tf_static -O points.bag

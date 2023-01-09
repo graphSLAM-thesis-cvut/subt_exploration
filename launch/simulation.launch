@@ -9,7 +9,7 @@
    robotName1:=$(arg robotName) \
    robotConfig1:=$(arg robotConfig) \
    enableGroundTruth:=true \
-   use_sim_time:=true" 
+   use_sim_time:=false" 
    name="subt_sim" output="screen" />
 
   <include file="$(find subt_exploration)/launch/timed_start.launch">
@@ -19,5 +19,13 @@
       <arg name="file" value="static_transform_publisher" />
       <arg name="value" value="0 0 0 0 0 0 COSTAR_HUSKY/odom world 100" />
   </include>
+  <!-- <include file="$(find subt_exploration)/launch/timed_start.launch">
+      <arg name="start_type" value="rosparam" />
+      <arg name="time" value="25" />
+      <arg name="pkg" value="tf" />
+      <arg name="file" value="static_transform_publisher" />
+      <arg name="value" value="0 0 0 0 0 0 COSTAR_HUSKY/odom world 100" />
+  </include> -->
+
 
 </launch>

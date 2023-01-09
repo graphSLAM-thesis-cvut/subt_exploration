@@ -11,11 +11,13 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
-  tf
   nav_msgs
   grid_map_core
   grid_map_ros
   grid_map_msgs
+  pcl_conversions
+  tf
+  tf_conversions
   # costmap_2d
 )
 
@@ -125,48 +127,50 @@ catkin_package(
   INCLUDE_DIRS
   LIBRARIES
    grid_map_ros
+   tf_conversions
   CATKIN_DEPENDS
     grid_map_core
     grid_map_ros
     grid_map_msg
-    # costmap_2d
+    pcl_ros
+    pcl_conversions
     tf
-  DEPENDS
+    tf_conversions
 )
 
+find_package(Eigen3 REQUIRED)
+
+
+# include_directories(${EIGEN3_INCLUDE_DIR})
 include_directories(
   SYSTEM
     ${catkin_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIR}
 )
-
+add_definitions(${EIGEN_DEFINITIONS})
 
 add_executable(odom_to_tf_transform src/odom_to_tf.cpp)
 target_link_libraries(odom_to_tf_transform
   ${catkin_LIBRARIES}
 )
 
-# add_executable(tf_broadcaster src/tf_broadcaster.cpp)
-# target_link_libraries(tf_broadcaster
-#   ${catkin_LIBRARIES}
-# )
-
 add_executable(gridmap_to_occupancy src/gridmap_to_occupancy.cpp)
+target_link_libraries(gridmap_to_occupancy
+  ${catkin_LIBRARIES}
+  ${EIGEN3_INCLUDE_DIR}
+)
+
+add_executable(my_elevation_mapping src/my_elevation_mapping.cpp)
+target_link_libraries(my_elevation_mapping
+  ${catkin_LIBRARIES}
+  ${EIGEN3_INCLUDE_DIR}
+)
 
 
 install(PROGRAMS src/run_simulation.sh
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
-find_package(Eigen3 REQUIRED)
-
-include_directories(${EIGEN3_INCLUDE_DIR})
-
-add_definitions(${EIGEN_DEFINITIONS})
-target_link_libraries(gridmap_to_occupancy
-  ${catkin_LIBRARIES}
-  ${EIGEN3_INCLUDE_DIR}
-)
 
 install(PROGRAMS scripts/timed_roslaunch.sh
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

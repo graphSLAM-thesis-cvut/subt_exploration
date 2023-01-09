@@ -14,10 +14,18 @@ Install other dependencies:
 ```
 rosdep install --from-paths src --ignore-src -r -y
 ```
+Install elevation mapping package: <br>
+https://github.com/ANYbotics/elevation_mapping
+```
+git clone https://github.com/ANYbotics/elevation_mapping 
+git clone git@github.com:ANYbotics/kindr.git 
+git clone git@github.com:ANYbotics/kindr_ros.git
+git clone git@github.com:ANYbotics/message_logger.git
+catkin config --cmake-args -DCMAKE_BUILD_TYPE=Release
+
+```
+
 ## For move_base:
-```
-sudo apt install
-```
 ## For exploration:
 ```
 git clone git@github.com:rohithjayarajan/frontier_exploration.git
