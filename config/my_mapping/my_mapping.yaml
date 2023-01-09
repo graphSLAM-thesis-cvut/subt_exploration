@@ -1,14 +1,22 @@
 pcl_topic: /cropbox/output
 origin1: 30
 origin2: -5
-size1: 10
-size2: 10
+size1: 500
+size2: 500
 resolution: 0.2
 out_pcl_topic: /my_elevation_map/pcl
 map_frame: COSTAR_HUSKY/odom
 rosbag: false
 
 
+init_submap: true
+init_submap_radius: 3.5
+init_submap_height_offset: 0.12
+init_submap_frame: COSTAR_HUSKY
+
+
+traversability_topic: travers
+slope_th: 0.2
 
 # robot_base_frame_id:                        base_link
 # robot_base_frame_id:                        COSTAR_HUSKY
