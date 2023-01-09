@@ -23,8 +23,10 @@
 
 #include <tf2/convert.h>
 #include <tf2_eigen/tf2_eigen.h>
+// #include <utility>
 
 
+typedef std::pair<int, int> pairs;
 
 
 // std::string out_pcl_topic_ = "/my_elevation_map/pcl";
@@ -211,7 +213,9 @@ class ElevationMapper{
       pointCloudGrid->header.frame_id = map_frame_;
       pointCloudGrid->header = pointCloudTransformed->header;
 
-
+      // std::vector<int> exploredI;
+      // std::vector<int> exploredJ;
+      std::set<pairs> measured;
       // std::cout << "finding out heights" << std::endl;
       // std::vector<>
       for (size_t i = 0; i < pointCloudTransformed->size(); i++)
@@ -238,6 +242,9 @@ class ElevationMapper{
             current_measurement_(indexX, indexY) = point.z;
             elevation_time_estimated_(indexX, indexY) = cur_time;
           }
+          // exploredI.push_back(indexX);
+          // exploredJ.push_back(indexY);
+          measured.insert(pairs(indexX, indexY));
           // (elevation_)(indexX, indexY) = (elevation_)(indexX, indexY)*0.9 + point.z*0.1;
         // } else {
         //   (elevation_)(indexX, indexY) = point.z;
@@ -246,12 +253,11 @@ class ElevationMapper{
         // }
       }
 
-      for (int i = 0; i < n_cells1_; i++)
-      {
-        for (int j = 0; j < n_cells2_; j++)
-        {
-          if (cur_time == elevation_time_estimated_(i, j)){
-            // continue;
+      for (auto& pair: measured){
+        int i = pair.first;
+        int j = pair.second;
+        if (cur_time == elevation_time_estimated_(i, j)){
+      //       // continue;
             if (1 == (explored_)(i, j)){
               (elevation_)(i, j) = (elevation_)(i, j)*0.9 + current_measurement_(i, j)*0.1;
             } else {
@@ -259,23 +265,37 @@ class ElevationMapper{
               (explored_)(i, j) = 1;
             }
           }
-          // float coordinateX = (i - n_cells1_/2) * resolution_; 
-          // float coordinateY = (j - n_cells2_/2) * resolution_; 
-          // pcl::PointXYZI p(1.0);
-          // p.x = coordinateX + origin1_;
-          // p.y = coordinateY + origin2_;
-          // p.z = elevation_.coeff(i, j);
-          // pointCloudGrid->insert(pointCloudGrid->end(), p);
-        }
       }
+
+      // for (int i = 0; i < n_cells1_; i++)
+      // {
+      //   for (int j = 0; j < n_cells2_; j++)
+      //   {
+      //     if (cur_time == elevation_time_estimated_(i, j)){
+      //       // continue;
+      //       if (1 == (explored_)(i, j)){
+      //         (elevation_)(i, j) = (elevation_)(i, j)*0.9 + current_measurement_(i, j)*0.1;
+      //       } else {
+      //         (elevation_)(i, j) = current_measurement_(i, j);
+      //         (explored_)(i, j) = 1;
+      //       }
+      //     }
+      //     // float coordinateX = (i - n_cells1_/2) * resolution_; 
+      //     // float coordinateY = (j - n_cells2_/2) * resolution_; 
+      //     // pcl::PointXYZI p(1.0);
+      //     // p.x = coordinateX + origin1_;
+      //     // p.y = coordinateY + origin2_;
+      //     // p.z = elevation_.coeff(i, j);
+      //     // pointCloudGrid->insert(pointCloudGrid->end(), p);
+      //   }
+      // }
 
 
       // std::cout << "Publishing heights" << std::endl;
-      for (int i = 0; i < n_cells1_; i++)
-      {
-        for (int j = 0; j < n_cells2_; j++)
-        {
-          if (!(explored_)(i, j)){
+      for (auto& pair: measured){
+        int i = pair.first;
+        int j = pair.second;
+        if (!(explored_)(i, j)){
             continue;
           }
           float coordinateX = (i - n_cells1_/2) * resolution_; 
@@ -285,8 +305,23 @@ class ElevationMapper{
           p.y = coordinateY + origin2_;
           p.z = elevation_.coeff(i, j);
           pointCloudGrid->insert(pointCloudGrid->end(), p);
-        }
       }
+      // for (int i = 0; i < n_cells1_; i++)
+      // {
+      //   for (int j = 0; j < n_cells2_; j++)
+      //   {
+      //     if (!(explored_)(i, j)){
+      //       continue;
+      //     }
+      //     float coordinateX = (i - n_cells1_/2) * resolution_; 
+      //     float coordinateY = (j - n_cells2_/2) * resolution_; 
+      //     pcl::PointXYZI p(1.0);
+      //     p.x = coordinateX + origin1_;
+      //     p.y = coordinateY + origin2_;
+      //     p.z = elevation_.coeff(i, j);
+      //     pointCloudGrid->insert(pointCloudGrid->end(), p);
+      //   }
+      // }
 
       
       pcl::toPCLPointCloud2(*pointCloudGrid, pcl_pc);
