@@ -62,6 +62,10 @@ class ElevationMapper{
       tf_buffer_ = new tf2_ros::Buffer();
 	    transformListener_ = new tf2_ros::TransformListener(*tf_buffer_);
       initTimeMs = ros::Time::now().toNSec()/1000000;
+      if (init_submap_){
+        bool inited = init_submap();
+        std::cout << "Submap initialized successfully: " << inited << std::endl;
+      }
     }
     ~ElevationMapper(){
       nodeHandle_.shutdown();
@@ -81,10 +85,15 @@ class ElevationMapper{
     bool rosbag_ = false;
     uint32_t initTimeMs;
 
+    bool init_submap_ = false;
+    float init_submap_height_offset_ = 0.0;
+    float init_submap_radius_ = 0.0;
+
     std::string out_pcl_topic_ = "/my_elevation_map/pcl";
     std::string transformed_pcl_topic_ = "/my_elevation_map/pcl_glob";
     std::string pcl_topic_ = "COSTAR_HUSKY/points";
     std::string map_frame_ = "COSTAR_HUSKY/odom";
+    std::string init_submap_frame_ = "COSTAR_HUSKY/odom";
 
     Eigen::MatrixXf elevation_;
     Eigen::MatrixXi elevation_time_estimated_; // To get the highest point from the cell. TODO: maybe substitude with kd-tree ?
@@ -108,6 +117,10 @@ class ElevationMapper{
       pnh_.getParam("out_pcl_topic", out_pcl_topic_);
       pnh_.getParam("map_frame", map_frame_);
       pnh_.getParam("rosbag", rosbag_);
+      pnh_.getParam("init_submap", init_submap_);
+      pnh_.getParam("init_submap_radius", init_submap_radius_);
+      pnh_.getParam("init_submap_height_offset", init_submap_height_offset_);
+      pnh_.getParam("init_submap_frame", init_submap_frame_);
 
       std::cout << "pcl_topic: " << pcl_topic_ << std::endl;
       std::cout << "origin1: " << origin1_ << std::endl;
@@ -118,6 +131,11 @@ class ElevationMapper{
       std::cout << "out_pcl_topic: " << out_pcl_topic_ << std::endl;
       std::cout << "map_frame: " << map_frame_ << std::endl;
       std::cout << "rosbag: " << rosbag_ << std::endl;
+      std::cout << "init_submap: " << init_submap_ << std::endl;
+      std::cout << "init_submap_radius: " << init_submap_radius_ << std::endl;
+      std::cout << "init_submap_height_offset: " << init_submap_height_offset_ << std::endl;
+      std::cout << "init_submap_frame: " << init_submap_frame_ << std::endl;
+
 
       n_cells1_ = int(size1_/resolution_);
       n_cells2_ = int(size2_/resolution_);
@@ -334,7 +352,72 @@ class ElevationMapper{
 
     }
 
+    bool init_submap(){
+      geometry_msgs::TransformStamped transformTf;
+      ros::Time timeStamp;
+      timeStamp.fromSec(0.0);
+      try {
+        // transformListener_->waitForTransform(map_frame_, inputFrameId, timeStamp, ros::Duration(0.2), ros::Duration(0.001));
+        transformTf = tf_buffer_->lookupTransform(map_frame_, init_submap_frame_, timeStamp, ros::Duration(5.0));
+      } catch (tf::TransformException& ex) {
+        ROS_ERROR("%s", ex.what());
+
+        std::cout << "Init submap: failed to get a transform" << std::endl;
+        return false;
+      }
+      float x_coord = transformTf.transform.translation.x - origin1_;
+      float y_coord = transformTf.transform.translation.y - origin2_;
+      float z_coord = transformTf.transform.translation.z - init_submap_height_offset_;
+      int x_ind = int(x_coord/resolution_) + size1_/2;
+      int y_ind = int(y_coord/resolution_) + size2_/2;
+      std::cout << x_coord<< " " << y_coord << " " << z_coord << std::endl;
+
+      int radius_inds = int(init_submap_radius_/resolution_);
+      if (!radius_inds){
+        std::cout << "Init submap radius is 0" << std::endl;
+        return false;
+      }
+
       
+      PointCloudType::Ptr pointCloudGrid(new PointCloudType);
+    // pcl::fromPCLPointCloud2(pcl_pc, *pointCloudGrid);
+
+      pointCloudGrid->header.frame_id = map_frame_;
+      pointCloudGrid->header.stamp = ros::Time::now().toNSec()/1000;
+      
+      for (int i = -radius_inds; i <= radius_inds; i++)
+      {
+        for (int j = -radius_inds; j <= radius_inds; j++)
+        {
+          if (i*i + j*j >= radius_inds*radius_inds){ // only inside a circle
+            // std::cout << "Skipping" << std::endl;
+            continue;
+          }
+          // std::cout << "Initing" << std::endl;
+          int cellX = x_ind + i;
+          int cellY = y_ind + j;
+          elevation_(x_ind, y_ind) = z_coord;
+          explored_(x_ind, y_ind) = 1;
+          elevation_time_estimated_(x_ind, y_ind) = ros::Time::now().toNSec()/1000000 - 1;
+          pcl::PointXYZI p(1.0);
+          p.x = x_coord + i*resolution_ + origin1_;
+          p.y = y_coord + j*resolution_ + origin2_;
+          p.z = z_coord;
+          pointCloudGrid->insert(pointCloudGrid->end(), p);
+        }
+      }
+      
+
+      pcl::PCLPointCloud2 pcl_pc;
+      sensor_msgs::PointCloud2 output;
+
+      pcl::toPCLPointCloud2(*pointCloudGrid, pcl_pc);
+      pcl_conversions::fromPCL (pcl_pc, output);
+
+      // // Pub_lish the data
+      pub_.publish (output);
+      return true;
+    }
 
 };
 
