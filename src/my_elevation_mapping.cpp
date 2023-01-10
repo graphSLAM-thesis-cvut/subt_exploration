@@ -81,7 +81,7 @@ class ElevationMapper{
     Eigen::MatrixXi elevation_time_estimated_; // To get the highest point from the cell. TODO: maybe substitude with kd-tree ?
     Eigen::MatrixXf current_measurement_; // To get the highest point from the cell. TODO: maybe substitude with kd-tree ?
     Eigen::MatrixXi explored_;
-    Eigen::MatrixXi traversability_;
+    Eigen::MatrixXf traversability_;
 
     // tf::TransformListener transformListener_;
     tf2_ros::Buffer* tf_buffer_;
@@ -90,6 +90,9 @@ class ElevationMapper{
     ros::Publisher pub_trav_;
     ros::Publisher pub_pcl_gl_;
     ros::Subscriber sub_;
+
+    int offsetx_[4] =  { 0, 1,  0, -1};
+    int offsety_[4] =  { 1, 0, -1,  0};
 
     //methods
 
@@ -309,7 +312,7 @@ class ElevationMapper{
           if (!isIndexValid(i, j)){
               continue;
             }
-          if ( !(explored_)(i, j) || (traversability_(i, j) == -1) ){
+          if ( !(explored_)(i, j) || (traversability_(i, j) == -1.0) ){
             continue;
           }
           pairf xy_coordinate = indexToPosition(pairs(i, j));
@@ -335,26 +338,29 @@ class ElevationMapper{
     bool isIndexValid(int i, int j){
       return (i > 0) && (j>0) && (i<n_cells1_) && (j<n_cells2_);
     }
-
+    
     bool update_traversability(int i, int j){
-      if (!isIndexValid(i-1, j) || !isIndexValid(i, j-1) || !isIndexValid(i, j))
-        return false;
-      if (explored_(i, j) && explored_(i-1, j) && explored_(i, j-1)){
-        float v = elevation_(i, j);
-        float v_up = elevation_(i-1, j);
-        float v_right = elevation_(i, j-1);
-        float diff1 = std::fabs(v - v_up);
-        float diff2 = std::fabs(v - v_right);
-        float slope = std::sqrt(diff1*diff1 + diff2*diff2);
-        int value = 0; // traversable
-        if (slope > slope_th_){
-          value = 2; // untraversable
+      float max_diff = 0.0;
+      int di;
+      int dj;
+      float v = elevation_(i, j);
+      float diff;
+      float v_cur;
+      for (size_t t = 0; t < 4; t++)
+      {
+        di = offsetx_[t];
+        dj = offsety_[t];
+        if (!isIndexValid(i+di, j+dj))
+          return false;
+        if (!explored_(i+di, j+dj)){
+          traversability_(i, j) = -1.0;
+          return true;
         }
-        traversability_(i, j) = value;
+        v_cur = elevation_(i+di, j+dj);
+        diff = std::fabs(v - v_cur);
+        max_diff = std::max(max_diff, diff);
       }
-      else{
-        traversability_(i, j) = -1; // unknown
-      }
+      traversability_(i, j) = max_diff;
       return true;
     }
 
@@ -384,21 +390,21 @@ class ElevationMapper{
         return false;
       }
       
-      for (int i = -radius_inds; i <= radius_inds; i++)
+      for (int di = -radius_inds; di <= radius_inds; di++)
       {
-        for (int j = -radius_inds; j <= radius_inds; j++)
+        for (int dj = -radius_inds; dj <= radius_inds; dj++)
         {
-          int cellX = x_ind + i;
-          int cellY = y_ind + j;
+          int cellX = x_ind + di;
+          int cellY = y_ind + dj;
           if(!isIndexValid(cellX, cellY))
             continue;
-          if (i*i + j*j >= radius_inds*radius_inds){ // only inside a circle
+          if (di*di + dj*dj >= radius_inds*radius_inds){ // only inside a circle
             continue;
           }
           elevation_(cellX, cellY) = z_coord;
           explored_(cellX, cellY) = 1;
           elevation_time_estimated_(cellX, cellY) = ros::Time::now().toNSec()/1000000 - 1;
-          update_traversability(cellX, cellY);
+          traversability_(cellX, cellY) = 0.0;
         }
       }
       return true;
