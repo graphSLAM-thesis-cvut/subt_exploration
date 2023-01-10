@@ -81,12 +81,16 @@ class ElevationMapper{
     std::string travers_topic_ = "traversability";
     std::string frontiers_topic_ = "frontiers";
     float slope_th_ = 0.1;
+    float robot_radius_ = 0.2;
+
+    int robot_radius_cells_;
 
     Eigen::MatrixXf elevation_;
     Eigen::MatrixXi elevation_time_estimated_; // To get the highest point from the cell. TODO: maybe substitude with kd-tree ?
     Eigen::MatrixXf current_measurement_; // To get the highest point from the cell. TODO: maybe substitude with kd-tree ?
     Eigen::MatrixXi explored_;
     Eigen::MatrixXf traversability_;
+    Eigen::MatrixXi traversability_increased_;
 
     // tf::TransformListener transformListener_;
     tf2_ros::Buffer* tf_buffer_;
@@ -121,6 +125,7 @@ class ElevationMapper{
       pnh_.getParam("traversability_topic", travers_topic_);
       pnh_.getParam("slope_th", slope_th_);
       pnh_.getParam("frontiers_topic", frontiers_topic_);
+      pnh_.getParam("robot_radius", robot_radius_);
 
       std::cout << "pcl_topic: " << pcl_topic_ << std::endl;
       std::cout << "origin1: " << origin1_ << std::endl;
@@ -138,11 +143,13 @@ class ElevationMapper{
       std::cout << "traversability topic: " << travers_topic_ << std::endl;
       std::cout << "Slope threshhold: " << slope_th_ << std::endl;
       std::cout << "Frontiers topic: " << frontiers_topic_ << std::endl;
+      std::cout << "Robot radius: " << robot_radius_ << std::endl;
 
 
       n_cells1_ = int(size1_/resolution_);
       n_cells2_ = int(size2_/resolution_);
       vis_radius_cells_ = int(vis_radius_/resolution_);
+      robot_radius_cells_ = int(robot_radius_/resolution_);
 
       std::cout << "INITIALIZING MATRICIES" << std::endl;
       elevation_.resize(n_cells1_, n_cells2_);
@@ -150,6 +157,7 @@ class ElevationMapper{
       elevation_time_estimated_.resize(n_cells1_, n_cells2_);
       current_measurement_.resize(n_cells1_, n_cells2_);
       traversability_.resize(n_cells1_, n_cells2_);
+      traversability_increased_.resize(n_cells1_, n_cells2_);
       
 
       std::cout << "n_cells1: " << n_cells1_ << std::endl;
@@ -331,7 +339,7 @@ class ElevationMapper{
           pairf xy_coordinate = indexToPosition(pairs(i, j));
           float coordinateX = xy_coordinate.first; 
           float coordinateY = xy_coordinate.second;
-          pcl::PointXYZI p(traversability_(i, j) > slope_th_);
+          pcl::PointXYZI p(traversability_increased_(i, j) > slope_th_);
           p.x = coordinateX;
           p.y = coordinateY;
           p.z = 0;
@@ -353,6 +361,18 @@ class ElevationMapper{
     }
     
     bool update_traversability(int i, int j){
+      bool change = false;
+      bool increase = true;
+      bool before = (traversability_(i, j) < slope_th_) || !explored_(i, j);
+
+      // bool first_time = false;
+      // float prev_value;
+      // if (!explored_(i, j) || traversability_(i, j) == -1.0){
+      //   first_time = true;
+      // } else {
+      //   prev_value = traversability_increased_(i, j);
+      // }
+
       float max_diff = 0.0;
       int di;
       int dj;
@@ -367,6 +387,7 @@ class ElevationMapper{
           return false;
         if (!explored_(i+di, j+dj)){
           traversability_(i, j) = -1.0;
+          traversability_increased_(i, j) = -1;
           return true;
         }
         v_cur = elevation_(i+di, j+dj);
@@ -374,7 +395,78 @@ class ElevationMapper{
         max_diff = std::max(max_diff, diff);
       }
       traversability_(i, j) = max_diff;
+
+      bool after = max_diff > slope_th_;
+
+      if (after && !before){
+        int r;
+        int c;
+        for (int di = -robot_radius_cells_; di <= robot_radius_cells_; di++)
+        {
+          for (int dj = -robot_radius_cells_; dj <= robot_radius_cells_; dj++)
+          {
+            r = i+di;
+            c = j+dj;
+            if (std::sqrt(di*di + dj*dj) >= robot_radius_cells_)
+              continue;
+            if (!isIndexValid(r, c))
+              continue;
+            if (!explored_(r, c) || traversability_(r, c) == -1.0)
+              continue;
+            traversability_increased_(r, c) = 1.0;
+          }
+        }
+      }
+      if (before && !after){
+        int r;
+        int c;
+        for (int di = -robot_radius_cells_; di <= robot_radius_cells_; di++)
+        {
+          for (int dj = -robot_radius_cells_; dj <= robot_radius_cells_; dj++)
+          {
+            r = i+di;
+            c = j+dj;
+            if (std::sqrt(di*di + dj*dj) >= robot_radius_cells_)
+              continue;
+            if (!isIndexValid(r, c))
+              continue;
+            if (!explored_(r, c) || traversability_(r, c) == -1.0)
+              continue;
+            if (!traversability_increased_(r, c))
+              continue;
+            max_neighb_traversability(r, c);
+          }
+        }
+      }
+
       return true;
+    }
+
+    void max_neighb_traversability(int i, int j){
+      int r;
+      int c;
+      bool value = traversability_(i, j) > slope_th_;
+      if (value)
+        return;
+
+      for (int di = -robot_radius_cells_; di <= robot_radius_cells_; di++)
+      {
+        for (int dj = -robot_radius_cells_; dj <= robot_radius_cells_; dj++)
+        {
+          r = i+di;
+          c = j+dj;
+          if (std::sqrt(di*di + dj*dj) >= robot_radius_cells_)
+            continue;
+          if (!isIndexValid(r, c))
+            continue;
+          if (!explored_(r, c) || traversability_(r, c) == -1.0)
+            continue;
+          if (traversability_(i, j) > slope_th_){
+            traversability_increased_(i, j) = 1;
+            return;
+          }
+        }
+      }
     }
 
     pairs getRobotCell(){
@@ -437,6 +529,7 @@ class ElevationMapper{
           explored_(cellX, cellY) = 1;
           elevation_time_estimated_(cellX, cellY) = ros::Time::now().toNSec()/1000000 - 1;
           traversability_(cellX, cellY) = 0.0;
+          traversability_increased_(cellX, cellY) = 0.0;
         }
       }
       return true;
@@ -447,7 +540,7 @@ class ElevationMapper{
       pairs startPoint = getRobotCell();
       std::cout << "Robot coordinates: " << startPoint.first << " " << startPoint.second << std::endl;
 
-      std::vector<std::vector<pairs>> frontiers = wfd(traversability_, explored_, startPoint.first, startPoint.second);
+      std::vector<std::vector<pairs>> frontiers = wfd(traversability_increased_, explored_, startPoint.first, startPoint.second);
       std::cout << "Found " << frontiers.size() << " frontiers!" << std::endl;
 
       sensor_msgs::PointCloud2 output;

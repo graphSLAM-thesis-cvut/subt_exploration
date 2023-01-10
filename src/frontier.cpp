@@ -12,6 +12,9 @@
 // - specify maximum obstacle length
 // - put all the parameters to the yaml file ot take them as an input
 // - maybe memorize previous frontiers
+// - somehow specify maximum frontier distance
+// - save interest points
+// - extract interest point
 
 
 using namespace std;
@@ -34,7 +37,7 @@ const int offsety4[N_S] = {1, -1, 0, 0};
 
 const int MIN_FOUND = 1;
 
-vector<vector<pairs>> wfd(const Eigen::MatrixXf& h_diffs, const Eigen::MatrixXi& explored, int posex, int posey) {	
+vector<vector<pairs>> wfd(const Eigen::MatrixXi& h_diffs, const Eigen::MatrixXi& explored, int posex, int posey) {	
 	pairs pose_start(posex, posey);
 	vector<vector<pairs> > frontiers;
 	// Cell state list for map/frontier open/closed
@@ -154,7 +157,7 @@ vector<vector<pairs>> wfd(const Eigen::MatrixXf& h_diffs, const Eigen::MatrixXi&
 
 
 
-bool is_frontier_point(const Eigen::MatrixXf& mat, const Eigen::MatrixXi& explored, pairs point) {
+bool is_frontier_point(const Eigen::MatrixXi& mat, const Eigen::MatrixXi& explored, pairs point) {
 	// The point under consideration must be known
 	if(!is_explored(point.first, point.second, mat, explored) || mat(point.first, point.second) > OCC_THRESHOLD ) {
 		return false;
@@ -183,11 +186,11 @@ bool is_frontier_point(const Eigen::MatrixXf& mat, const Eigen::MatrixXi& explor
 	return false;
 }
 
-bool is_index_valid(int i, int j, const Eigen::MatrixXf& mat){
+bool is_index_valid(int i, int j, const Eigen::MatrixXi& mat){
     return ( i >= 0 && j>=0 && i<mat.rows() && j<mat.cols() );
 }
 
-bool is_explored(int i, int j,  const Eigen::MatrixXf& travers, const Eigen::MatrixXi& explored){
+bool is_explored(int i, int j,  const Eigen::MatrixXi& travers, const Eigen::MatrixXi& explored){
     if (travers(i, j) < 0)
         return false;
     return (explored(i, j) == 1);
