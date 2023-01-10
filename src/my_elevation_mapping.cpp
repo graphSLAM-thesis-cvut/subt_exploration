@@ -25,6 +25,8 @@
 #include <tf2_eigen/tf2_eigen.h>
 
 #include "frontier.hpp"
+#include <std_srvs/Empty.h>
+// #include <std_srvs/SetBoolResponse.h>
 // #include <utility>
 
 
@@ -94,6 +96,8 @@ class ElevationMapper{
     ros::Publisher pub_pcl_gl_;
     ros::Publisher pub_frontier_;
     ros::Subscriber sub_;
+
+    ros::ServiceServer service;
 
     int offsetx_[4] =  { 0, 1,  0, -1};
     int offsety_[4] =  { 1, 0, -1,  0};
@@ -168,6 +172,8 @@ class ElevationMapper{
       pub_trav_ = nodeHandle_.advertise<sensor_msgs::PointCloud2> (travers_topic_, 1);
       pub_pcl_gl_ = nodeHandle_.advertise<sensor_msgs::PointCloud2> (transformed_pcl_topic_, 1);
       pub_frontier_ = nodeHandle_.advertise<sensor_msgs::PointCloud2> (frontiers_topic_, 1);
+
+      service = nodeHandle_.advertiseService("detect_frontiers", &ElevationMapper::frontrier_cb, this);
 
       std::cout << "Node initialized" << std::endl;
 
@@ -325,7 +331,7 @@ class ElevationMapper{
           pairf xy_coordinate = indexToPosition(pairs(i, j));
           float coordinateX = xy_coordinate.first; 
           float coordinateY = xy_coordinate.second;
-          pcl::PointXYZI p(traversability_(i, j));
+          pcl::PointXYZI p(traversability_(i, j) > slope_th_);
           p.x = coordinateX;
           p.y = coordinateY;
           p.z = 0;
@@ -436,11 +442,12 @@ class ElevationMapper{
       return true;
     }
 
-    void frontrier_cb(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response){
+    bool frontrier_cb(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response){
       std::cout << "Finding frontiers!" << std::endl;
       pairs startPoint = getRobotCell();
+      std::cout << "Robot coordinates: " << startPoint.first << " " << startPoint.second << std::endl;
 
-      std::vector<std::vector<pairs>> frontiers = wfd(traversability_, startPoint.first, startPoint.second);
+      std::vector<std::vector<pairs>> frontiers = wfd(traversability_, explored_, startPoint.first, startPoint.second);
       std::cout << "Found " << frontiers.size() << " frontiers!" << std::endl;
 
       sensor_msgs::PointCloud2 output;
@@ -449,10 +456,12 @@ class ElevationMapper{
       pointCloudFrontier->header.frame_id = map_frame_;
       pointCloudFrontier->header.stamp = ros::Time::now().toNSec()/1000;
       
+      int i = 0;
       for (auto& f: frontiers){
+        i++;
         for (auto& p: f){
           pairf xy = indexToPosition(p);
-          pcl::PointXYZI pt(1);
+          pcl::PointXYZI pt(float(i)/float(frontiers.size()));
           pt.x = xy.first;
           pt.y = xy.second;
           pt.z = 0;
@@ -464,8 +473,8 @@ class ElevationMapper{
       pcl::toPCLPointCloud2(*pointCloudFrontier, pcl_pc);
       pcl_conversions::fromPCL (pcl_pc, output);
       pub_frontier_.publish(output);
-
-      
+      return true;
+  
     }
 
     pairs positionToIndex(pairf position){

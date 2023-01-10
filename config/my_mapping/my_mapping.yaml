@@ -18,6 +18,8 @@ init_submap_frame: COSTAR_HUSKY
 traversability_topic: travers
 slope_th: 0.2
 
+vis_radius: 50
+
 # robot_base_frame_id:                        base_link
 # robot_base_frame_id:                        COSTAR_HUSKY
 # robot_pose_with_covariance_topic: "" # Leaving this empty skipps pose covariance updates.

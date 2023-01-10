@@ -160,7 +160,7 @@ target_link_libraries(gridmap_to_occupancy
   ${EIGEN3_INCLUDE_DIR}
 )
 
-add_executable(my_elevation_mapping src/my_elevation_mapping.cpp)
+add_executable(my_elevation_mapping src/my_elevation_mapping.cpp src/frontier.cpp)
 target_link_libraries(my_elevation_mapping
   ${catkin_LIBRARIES}
   ${EIGEN3_INCLUDE_DIR}
