@@ -1,2 +1,3 @@
 .vscode/*
 config/traversability_old
+bags/*.bag

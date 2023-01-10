@@ -23,6 +23,8 @@
 
 #include <tf2/convert.h>
 #include <tf2_eigen/tf2_eigen.h>
+
+#include "frontier.hpp"
 // #include <utility>
 
 
@@ -75,6 +77,7 @@ class ElevationMapper{
     std::string map_frame_ = "COSTAR_HUSKY/odom";
     std::string init_submap_frame_ = "COSTAR_HUSKY";
     std::string travers_topic_ = "traversability";
+    std::string frontiers_topic_ = "frontiers";
     float slope_th_ = 0.1;
 
     Eigen::MatrixXf elevation_;
@@ -89,6 +92,7 @@ class ElevationMapper{
     ros::Publisher pub_;
     ros::Publisher pub_trav_;
     ros::Publisher pub_pcl_gl_;
+    ros::Publisher pub_frontier_;
     ros::Subscriber sub_;
 
     int offsetx_[4] =  { 0, 1,  0, -1};
@@ -112,6 +116,7 @@ class ElevationMapper{
       pnh_.getParam("init_submap_frame", init_submap_frame_);
       pnh_.getParam("traversability_topic", travers_topic_);
       pnh_.getParam("slope_th", slope_th_);
+      pnh_.getParam("frontiers_topic", frontiers_topic_);
 
       std::cout << "pcl_topic: " << pcl_topic_ << std::endl;
       std::cout << "origin1: " << origin1_ << std::endl;
@@ -128,6 +133,7 @@ class ElevationMapper{
       std::cout << "init_submap_frame: " << init_submap_frame_ << std::endl;
       std::cout << "traversability topic: " << travers_topic_ << std::endl;
       std::cout << "Slope threshhold: " << slope_th_ << std::endl;
+      std::cout << "Frontiers topic: " << frontiers_topic_ << std::endl;
 
 
       n_cells1_ = int(size1_/resolution_);
@@ -161,6 +167,7 @@ class ElevationMapper{
       pub_ = nodeHandle_.advertise<sensor_msgs::PointCloud2> (out_pcl_topic_, 1);
       pub_trav_ = nodeHandle_.advertise<sensor_msgs::PointCloud2> (travers_topic_, 1);
       pub_pcl_gl_ = nodeHandle_.advertise<sensor_msgs::PointCloud2> (transformed_pcl_topic_, 1);
+      pub_frontier_ = nodeHandle_.advertise<sensor_msgs::PointCloud2> (frontiers_topic_, 1);
 
       std::cout << "Node initialized" << std::endl;
 
@@ -364,6 +371,25 @@ class ElevationMapper{
       return true;
     }
 
+    pairs getRobotCell(){
+      pairs answer(-1, -1);
+      geometry_msgs::TransformStamped transformTf;
+      ros::Time timeStamp;
+      timeStamp.fromSec(0.0);
+      try {
+        transformTf = tf_buffer_->lookupTransform(map_frame_, init_submap_frame_, timeStamp, ros::Duration(5.0));
+      } catch (tf::TransformException& ex) {
+        ROS_ERROR("%s", ex.what());
+
+        std::cout << "Init submap: failed to get a transform" << std::endl;
+        return answer;
+      }
+      float x_coord = transformTf.transform.translation.x ;
+      float y_coord = transformTf.transform.translation.y ;
+      answer = positionToIndex(pairf(x_coord, y_coord));
+      return answer;
+    }
+
     bool init_submap(){
       geometry_msgs::TransformStamped transformTf;
       ros::Time timeStamp;
@@ -408,6 +434,38 @@ class ElevationMapper{
         }
       }
       return true;
+    }
+
+    void frontrier_cb(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response){
+      std::cout << "Finding frontiers!" << std::endl;
+      pairs startPoint = getRobotCell();
+
+      std::vector<std::vector<pairs>> frontiers = wfd(traversability_, startPoint.first, startPoint.second);
+      std::cout << "Found " << frontiers.size() << " frontiers!" << std::endl;
+
+      sensor_msgs::PointCloud2 output;
+      PointCloudType::Ptr pointCloudFrontier(new PointCloudType);
+
+      pointCloudFrontier->header.frame_id = map_frame_;
+      pointCloudFrontier->header.stamp = ros::Time::now().toNSec()/1000;
+      
+      for (auto& f: frontiers){
+        for (auto& p: f){
+          pairf xy = indexToPosition(p);
+          pcl::PointXYZI pt(1);
+          pt.x = xy.first;
+          pt.y = xy.second;
+          pt.z = 0;
+          pointCloudFrontier->insert(pointCloudFrontier->end(), pt);
+        }
+      }
+
+      pcl::PCLPointCloud2 pcl_pc;
+      pcl::toPCLPointCloud2(*pointCloudFrontier, pcl_pc);
+      pcl_conversions::fromPCL (pcl_pc, output);
+      pub_frontier_.publish(output);
+
+      
     }
 
     pairs positionToIndex(pairf position){
