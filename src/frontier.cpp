@@ -8,8 +8,8 @@
 #include <Eigen/Core>
 
 // TODO: 
-// - make obstacles wider
-// - specify maximum obstacle length
+// - make obstacles wider - DONE
+// - specify maximum frontier length
 // - put all the parameters to the yaml file ot take them as an input
 // - maybe memorize previous frontiers
 
@@ -34,7 +34,7 @@ const int offsety4[N_S] = {1, -1, 0, 0};
 
 const int MIN_FOUND = 1;
 
-vector<vector<pairs>> wfd(const Eigen::MatrixXf& h_diffs, Eigen::MatrixXf& h_diffs_expanded, const Eigen::MatrixXi& explored, int posex, int posey, int robot_size_cells) {
+vector<vector<pairs>> wfd(const Eigen::MatrixXf& h_diffs, Eigen::MatrixXf& h_diffs_expanded, const Eigen::MatrixXi& explored, int posex, int posey, int robot_size_cells, int max_frontier_length_cells) {
     expand(h_diffs, h_diffs_expanded, explored, posex, posey, robot_size_cells);
 
 	pairs pose_start(posex, posey);
@@ -61,6 +61,9 @@ vector<vector<pairs>> wfd(const Eigen::MatrixXf& h_diffs, Eigen::MatrixXf& h_dif
 		if(is_frontier_point(h_diffs_expanded, explored, cur_pos)) {
 			queue<pairs> q_f;
 			vector<pairs> new_frontier;
+
+            int frontier_size = 0;
+
 			q_f.push(cur_pos);
 			cell_states[cur_pos] = FRONTIER_OPEN_LIST;
 			// Second BFS
@@ -76,6 +79,12 @@ vector<vector<pairs>> wfd(const Eigen::MatrixXf& h_diffs, Eigen::MatrixXf& h_dif
 				if(is_frontier_point(h_diffs_expanded, explored, n_cell)) {
 					// ROS_INFO("adding %d %d to frontiers", n_cell.first, n_cell.second);
 					new_frontier.push_back(n_cell);
+                    frontier_size ++;
+                    if(frontier_size > max_frontier_length_cells){
+
+				        cell_states[n_cell] = FRONTIER_CLOSE_LIST;
+                        break;
+                    }
 					// get_neighbours(adj_vector, cur_pos);			
 					//
 					// ROS_INFO("wfd 3.5");
@@ -227,7 +236,7 @@ void increase_boudary(const Eigen::MatrixXf& h_diffs, Eigen::MatrixXf& h_diffs_e
             int cellY = col + dj;
             if(!is_index_valid(cellX, cellY, h_diffs))
                 continue;
-            if (di*di + dj*dj > robot_size_cells*robot_size_cells){ // only inside a circle
+            if (di*di + dj*dj > robot_size_cells*robot_size_cells + 1){ // only inside a circle
                 continue;
             }
             if(!explored(cellX, cellY))

@@ -8,7 +8,7 @@ out_pcl_topic: /my_elevation_map/pcl
 map_frame: COSTAR_HUSKY/odom
 rosbag: false
 
-robot_size: 0.2
+robot_size: 0.4
 
 
 init_submap: true
@@ -21,6 +21,8 @@ traversability_topic: travers
 slope_th: 0.2
 
 vis_radius: 50
+
+max_frontier_length: 5
 
 # robot_base_frame_id:                        base_link
 # robot_base_frame_id:                        COSTAR_HUSKY

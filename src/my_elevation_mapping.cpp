@@ -93,6 +93,9 @@ class ElevationMapper{
     float robot_size_ = resolution_;
     int robot_size_cells_;
 
+    float max_frontier_length_ = 1.0;
+    int max_frontier_lenght_cells_;
+
 
     // tf::TransformListener transformListener_;
     tf2_ros::Buffer* tf_buffer_;
@@ -130,6 +133,7 @@ class ElevationMapper{
       pnh_.getParam("frontiers_topic", frontiers_topic_);
       pnh_.getParam("travers_expanded_topic", travers_expanded_topic_);
       pnh_.getParam("robot_size", robot_size_);
+      pnh_.getParam("max_frontier_length", max_frontier_length_);
 
       std::cout << "pcl_topic: " << pcl_topic_ << std::endl;
       std::cout << "origin1: " << origin1_ << std::endl;
@@ -149,12 +153,13 @@ class ElevationMapper{
       std::cout << "Frontiers topic: " << frontiers_topic_ << std::endl;
       std::cout << "Frontiers expanded topic: " << travers_expanded_topic_ << std::endl;
       std::cout << "Robot size: " << robot_size_ << std::endl;
-
+      std::cout << "Max frontier lenth: " << max_frontier_length_ << std::endl;
 
       n_cells1_ = int(size1_/resolution_);
       n_cells2_ = int(size2_/resolution_);
       vis_radius_cells_ = int(vis_radius_/resolution_);
       robot_size_cells_ = int(robot_size_/resolution_);
+      max_frontier_lenght_cells_ = int(max_frontier_length_/resolution_);
 
       std::cout << "INITIALIZING MATRICIES" << std::endl;
       elevation_.resize(n_cells1_, n_cells2_);
@@ -169,6 +174,7 @@ class ElevationMapper{
       std::cout << "n_cells2: " << n_cells2_ << std::endl;
       std::cout << "vis_radius_cells: " << vis_radius_cells_ << std::endl;
       std::cout << "robot_size_cells_: " << robot_size_cells_ << std::endl;
+      std::cout << "max_frontier_lenght_cells_: " << max_frontier_lenght_cells_ << std::endl;
 
       for (size_t i = 0; i < n_cells1_; i++)
       {
@@ -465,7 +471,7 @@ class ElevationMapper{
       pairs startPoint = getRobotCell();
       std::cout << "Robot coordinates: " << startPoint.first << " " << startPoint.second << std::endl;
 
-      std::vector<std::vector<pairs>> frontiers = wfd(traversability_, traversability_expanded_, explored_, startPoint.first, startPoint.second, robot_size_cells_);
+      std::vector<std::vector<pairs>> frontiers = wfd(traversability_, traversability_expanded_, explored_, startPoint.first, startPoint.second, robot_size_cells_, max_frontier_lenght_cells_);
       std::cout << "Found " << frontiers.size() << " frontiers!" << std::endl;
 
       sensor_msgs::PointCloud2 output;
