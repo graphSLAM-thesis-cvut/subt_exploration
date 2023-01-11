@@ -16,3 +16,18 @@
 #include <ompl/geometric/planners/rrt/InformedRRTstar.h>
 #include <ompl/geometric/planners/rrt/RRTstar.h>
 #include <ompl/geometric/planners/rrt/SORRTstar.h>
+
+// #include <boost/program_options.hpp>
+// For string comparison (boost::iequals)
+#include <boost/algorithm/string.hpp>
+// For std::make_shared
+#include <memory>
+
+#include <fstream>
+
+enum optimalPlanner;
+enum planningObjective;
+
+
+
+
