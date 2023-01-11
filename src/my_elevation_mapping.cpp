@@ -80,6 +80,7 @@ class ElevationMapper{
     std::string init_submap_frame_ = "COSTAR_HUSKY";
     std::string travers_topic_ = "traversability";
     std::string frontiers_topic_ = "frontiers";
+    std::string travers_expanded_topic_ = "travers_expanded";
     float slope_th_ = 0.1;
 
     Eigen::MatrixXf elevation_;
@@ -87,6 +88,11 @@ class ElevationMapper{
     Eigen::MatrixXf current_measurement_; // To get the highest point from the cell. TODO: maybe substitude with kd-tree ?
     Eigen::MatrixXi explored_;
     Eigen::MatrixXf traversability_;
+    Eigen::MatrixXf traversability_expanded_;
+
+    float robot_size_ = resolution_;
+    int robot_size_cells_;
+
 
     // tf::TransformListener transformListener_;
     tf2_ros::Buffer* tf_buffer_;
@@ -95,6 +101,7 @@ class ElevationMapper{
     ros::Publisher pub_trav_;
     ros::Publisher pub_pcl_gl_;
     ros::Publisher pub_frontier_;
+    ros::Publisher pub_travers_expanded_;
     ros::Subscriber sub_;
 
     ros::ServiceServer service;
@@ -121,6 +128,8 @@ class ElevationMapper{
       pnh_.getParam("traversability_topic", travers_topic_);
       pnh_.getParam("slope_th", slope_th_);
       pnh_.getParam("frontiers_topic", frontiers_topic_);
+      pnh_.getParam("travers_expanded_topic", travers_expanded_topic_);
+      pnh_.getParam("robot_size", robot_size_);
 
       std::cout << "pcl_topic: " << pcl_topic_ << std::endl;
       std::cout << "origin1: " << origin1_ << std::endl;
@@ -138,11 +147,14 @@ class ElevationMapper{
       std::cout << "traversability topic: " << travers_topic_ << std::endl;
       std::cout << "Slope threshhold: " << slope_th_ << std::endl;
       std::cout << "Frontiers topic: " << frontiers_topic_ << std::endl;
+      std::cout << "Frontiers expanded topic: " << travers_expanded_topic_ << std::endl;
+      std::cout << "Robot size: " << robot_size_ << std::endl;
 
 
       n_cells1_ = int(size1_/resolution_);
       n_cells2_ = int(size2_/resolution_);
       vis_radius_cells_ = int(vis_radius_/resolution_);
+      robot_size_cells_ = int(robot_size_/resolution_);
 
       std::cout << "INITIALIZING MATRICIES" << std::endl;
       elevation_.resize(n_cells1_, n_cells2_);
@@ -150,11 +162,13 @@ class ElevationMapper{
       elevation_time_estimated_.resize(n_cells1_, n_cells2_);
       current_measurement_.resize(n_cells1_, n_cells2_);
       traversability_.resize(n_cells1_, n_cells2_);
+      traversability_expanded_.resize(n_cells1_, n_cells2_);
       
 
       std::cout << "n_cells1: " << n_cells1_ << std::endl;
       std::cout << "n_cells2: " << n_cells2_ << std::endl;
       std::cout << "vis_radius_cells: " << vis_radius_cells_ << std::endl;
+      std::cout << "robot_size_cells_: " << robot_size_cells_ << std::endl;
 
       for (size_t i = 0; i < n_cells1_; i++)
       {
@@ -172,6 +186,7 @@ class ElevationMapper{
       pub_trav_ = nodeHandle_.advertise<sensor_msgs::PointCloud2> (travers_topic_, 1);
       pub_pcl_gl_ = nodeHandle_.advertise<sensor_msgs::PointCloud2> (transformed_pcl_topic_, 1);
       pub_frontier_ = nodeHandle_.advertise<sensor_msgs::PointCloud2> (frontiers_topic_, 1);
+      pub_travers_expanded_ = nodeHandle_.advertise<sensor_msgs::PointCloud2> (travers_expanded_topic_, 1);
 
       service = nodeHandle_.advertiseService("detect_frontiers", &ElevationMapper::frontrier_cb, this);
 
@@ -367,6 +382,7 @@ class ElevationMapper{
           return false;
         if (!explored_(i+di, j+dj)){
           traversability_(i, j) = -1.0;
+          traversability_expanded_(i, j) = -1.0;
           return true;
         }
         v_cur = elevation_(i+di, j+dj);
@@ -374,6 +390,7 @@ class ElevationMapper{
         max_diff = std::max(max_diff, diff);
       }
       traversability_(i, j) = max_diff;
+      traversability_expanded_(i, j) = max_diff;
       return true;
     }
 
@@ -437,6 +454,7 @@ class ElevationMapper{
           explored_(cellX, cellY) = 1;
           elevation_time_estimated_(cellX, cellY) = ros::Time::now().toNSec()/1000000 - 1;
           traversability_(cellX, cellY) = 0.0;
+          traversability_expanded_(cellX, cellY) = 0.0;
         }
       }
       return true;
@@ -447,7 +465,7 @@ class ElevationMapper{
       pairs startPoint = getRobotCell();
       std::cout << "Robot coordinates: " << startPoint.first << " " << startPoint.second << std::endl;
 
-      std::vector<std::vector<pairs>> frontiers = wfd(traversability_, explored_, startPoint.first, startPoint.second);
+      std::vector<std::vector<pairs>> frontiers = wfd(traversability_, traversability_expanded_, explored_, startPoint.first, startPoint.second, robot_size_cells_);
       std::cout << "Found " << frontiers.size() << " frontiers!" << std::endl;
 
       sensor_msgs::PointCloud2 output;
@@ -473,6 +491,40 @@ class ElevationMapper{
       pcl::toPCLPointCloud2(*pointCloudFrontier, pcl_pc);
       pcl_conversions::fromPCL (pcl_pc, output);
       pub_frontier_.publish(output);
+
+      // publish expanded frontier
+
+      PointCloudType::Ptr pointCloudTravExp(new PointCloudType);
+      pointCloudTravExp->header.frame_id = map_frame_;
+      pointCloudTravExp->header = pointCloudFrontier->header;
+
+      for (int i = startPoint.first-vis_radius_cells_; i <= startPoint.first + vis_radius_cells_; i++)
+      {
+        for (int j = startPoint.second-vis_radius_cells_; j <= startPoint.second + vis_radius_cells_; j++)
+        {
+          if (!isIndexValid(i, j)){
+              continue;
+            }
+          if ( !(explored_)(i, j) || (traversability_expanded_(i, j) == -1.0) ){
+            continue;
+          }
+          pairf xy_coordinate = indexToPosition(pairs(i, j));
+          float coordinateX = xy_coordinate.first; 
+          float coordinateY = xy_coordinate.second;
+          pcl::PointXYZI p(traversability_expanded_(i, j) > slope_th_);
+          p.x = coordinateX;
+          p.y = coordinateY;
+          p.z = 0;
+          pointCloudTravExp->insert(pointCloudTravExp->end(), p);
+        }
+      }
+
+      pcl::toPCLPointCloud2(*pointCloudTravExp, pcl_pc);
+      pcl_conversions::fromPCL (pcl_pc, output);
+
+      // Publish the data
+      pub_travers_expanded_.publish(output);
+
       return true;
   
     }

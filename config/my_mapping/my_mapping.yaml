@@ -8,6 +8,8 @@ out_pcl_topic: /my_elevation_map/pcl
 map_frame: COSTAR_HUSKY/odom
 rosbag: false
 
+robot_size: 0.2
+
 
 init_submap: true
 init_submap_radius: 3.5

@@ -34,7 +34,9 @@ const int offsety4[N_S] = {1, -1, 0, 0};
 
 const int MIN_FOUND = 1;
 
-vector<vector<pairs>> wfd(const Eigen::MatrixXf& h_diffs, const Eigen::MatrixXi& explored, int posex, int posey) {	
+vector<vector<pairs>> wfd(const Eigen::MatrixXf& h_diffs, Eigen::MatrixXf& h_diffs_expanded, const Eigen::MatrixXi& explored, int posex, int posey, int robot_size_cells) {
+    expand(h_diffs, h_diffs_expanded, explored, posex, posey, robot_size_cells);
+
 	pairs pose_start(posex, posey);
 	vector<vector<pairs> > frontiers;
 	// Cell state list for map/frontier open/closed
@@ -56,7 +58,7 @@ vector<vector<pairs>> wfd(const Eigen::MatrixXf& h_diffs, const Eigen::MatrixXi&
 		// Skip if map_close_list
 		if(cell_states[cur_pos] == MAP_CLOSE_LIST)
 			continue;
-		if(is_frontier_point(h_diffs, explored, cur_pos)) {
+		if(is_frontier_point(h_diffs_expanded, explored, cur_pos)) {
 			queue<pairs> q_f;
 			vector<pairs> new_frontier;
 			q_f.push(cur_pos);
@@ -71,7 +73,7 @@ vector<vector<pairs>> wfd(const Eigen::MatrixXf& h_diffs, const Eigen::MatrixXi&
 				if(cell_states[n_cell] == MAP_CLOSE_LIST || cell_states[n_cell] == FRONTIER_CLOSE_LIST)
 					continue;
 				//
-				if(is_frontier_point(h_diffs, explored, n_cell)) {
+				if(is_frontier_point(h_diffs_expanded, explored, n_cell)) {
 					// ROS_INFO("adding %d %d to frontiers", n_cell.first, n_cell.second);
 					new_frontier.push_back(n_cell);
 					// get_neighbours(adj_vector, cur_pos);			
@@ -83,12 +85,12 @@ vector<vector<pairs>> wfd(const Eigen::MatrixXf& h_diffs, const Eigen::MatrixXi&
                         i = n_cell.first  + offsetx[t];
                         j = n_cell.second + offsety[t];
                         pairs ij(i, j);
-						if(is_index_valid(i, j, h_diffs)) {
+						if(is_index_valid(i, j, h_diffs_expanded)) {
 							if(cell_states[ij] != FRONTIER_OPEN_LIST && 
 								cell_states[ij] != FRONTIER_CLOSE_LIST && 
 								cell_states[ij] != MAP_CLOSE_LIST) {
 								// ROS_INFO("wfd 4");
-								if(h_diffs(i, j) < OCC_THRESHOLD) { //if(h_diffs(i, j) != 100) {
+								if(h_diffs_expanded(i, j) < OCC_THRESHOLD) { //if(h_diffs_expanded(i, j) != 100) {
 								    // ROS_INFO("wfd 5");
 									q_f.push(ij);
 									cell_states[ij] = FRONTIER_OPEN_LIST;
@@ -116,8 +118,8 @@ vector<vector<pairs>> wfd(const Eigen::MatrixXf& h_diffs, const Eigen::MatrixXi&
             j1 = cur_pos.second + offsety4[t1];
             pairs ij1(i1, j1);
 			// ROS_INFO("wfd 6");
-			if(is_index_valid(i1, j1, h_diffs)) {
-				if(cell_states[ij1] != MAP_OPEN_LIST &&  cell_states[ij1] != MAP_CLOSE_LIST && h_diffs(i1, j1) < OCC_THRESHOLD && h_diffs(i1, j1) >=0 ) {
+			if(is_index_valid(i1, j1, h_diffs_expanded)) {
+				if(cell_states[ij1] != MAP_OPEN_LIST &&  cell_states[ij1] != MAP_CLOSE_LIST && h_diffs_expanded(i1, j1) < OCC_THRESHOLD && h_diffs_expanded(i1, j1) >=0 ) {
 
 			        // ROS_INFO("wfd 6.1");
 					// get_neighbours(v_neighbours, adj_vector[i], map_width);
@@ -127,10 +129,10 @@ vector<vector<pairs>> wfd(const Eigen::MatrixXf& h_diffs, const Eigen::MatrixXi&
                         j2 = j1 + offsety4[t2];
                         pairs ij2(i2, j2);
 
-						if(is_index_valid(i2, j2, h_diffs)) {
+						if(is_index_valid(i2, j2, h_diffs_expanded)) {
 
 			                // ROS_INFO("wfd 6.3");
-							if(h_diffs(i2, j2) < OCC_THRESHOLD && h_diffs(i2, j2) >= 0 && explored(i2, j2) ) { //>= 0 AANPASSING
+							if(h_diffs_expanded(i2, j2) < OCC_THRESHOLD && h_diffs_expanded(i2, j2) >= 0 && explored(i2, j2) ) { //>= 0 AANPASSING
                                 // ROS_INFO("wfd 6.4");
 								map_open_neighbor = true;
 								break;
@@ -152,7 +154,90 @@ vector<vector<pairs>> wfd(const Eigen::MatrixXf& h_diffs, const Eigen::MatrixXi&
 	return frontiers;
 }
 
+void expand(const Eigen::MatrixXf& h_diffs, Eigen::MatrixXf& h_diffs_expanded, const Eigen::MatrixXi& explored, int posex, int posey, int robot_size_cells){
+    pairs pose_start(posex, posey);
+	// Eigen::MatrixXf& h_diffs
+	// Cell state list for map/frontier open/closed
+	int map_size = h_diffs.rows() * h_diffs.cols();
+	std::map<pairs, int> cell_states;
+	//
+	queue<pairs> q_m;	
+	q_m.push(pose_start);
+	cell_states[pose_start] = MAP_OPEN_LIST;
+	int adj_vector[N_S4];
+	int v_neighbours[N_S4];
+	//
+	ROS_INFO("expanding the map's obstacles 1");
+	while(!q_m.empty()) {
+		// ROS_INFO("wfd 2");
+		pairs cur_pos = q_m.front();
+		q_m.pop();
+		// ROS_INFO("cur_pos: %d %d, cell_state: %d", cur_pos.first, cur_pos.second, cell_states[cur_pos]);
+		// Skip if map_close_list
+		if(cell_states[cur_pos] == MAP_CLOSE_LIST)
+			continue;
 
+        int i1, j1, i2, j2;
+		for (int t1 = 0; t1 < N_S4; ++t1) {
+            i1 = cur_pos.first + offsetx4[t1];
+            j1 = cur_pos.second + offsety4[t1];
+            pairs ij1(i1, j1);
+			// ROS_INFO("wfd 6");
+			if(is_index_valid(i1, j1, h_diffs)) {
+				if(cell_states[ij1] != MAP_OPEN_LIST &&  cell_states[ij1] != MAP_CLOSE_LIST && h_diffs(i1, j1) < OCC_THRESHOLD && h_diffs(i1, j1) >=0 ) {
+
+			        // ROS_INFO("wfd 6.1");
+					// get_neighbours(v_neighbours, adj_vector[i], map_width);
+					bool map_open_neighbor = false;
+					for(int t2 = 0; t2 < N_S4; t2++) {
+                        i2 = i1 + offsetx4[t2];
+                        j2 = j1 + offsety4[t2];
+                        pairs ij2(i2, j2);
+
+						if(is_index_valid(i2, j2, h_diffs)) {
+
+			                // ROS_INFO("wfd 6.3");
+							if(h_diffs(i2, j2) < OCC_THRESHOLD && h_diffs(i2, j2) >= 0 && explored(i2, j2) ) { //>= 0 AANPASSING
+                                // ROS_INFO("wfd 6.4");
+								map_open_neighbor = true;
+								break;
+							} //else if (h_diffs(i2, j2) > OCC_THRESHOLD && explored(i2, j2))
+                                //increase_boudary(h_diffs, h_diffs_expanded, explored, )
+						}
+					}
+					if(map_open_neighbor) {
+						q_m.push(ij1);
+						cell_states[ij1] = MAP_OPEN_LIST;
+					}
+				} else if (explored(i1, j1) && h_diffs(i1, j1) > OCC_THRESHOLD )
+                    increase_boudary(h_diffs, h_diffs_expanded, explored, i1, j1, robot_size_cells);
+			}
+		}
+		// ROS_INFO("wfd 7");
+		cell_states[cur_pos] = MAP_CLOSE_LIST;
+		// ROS_INFO("wfd 7.1");
+	}
+}
+
+void increase_boudary(const Eigen::MatrixXf& h_diffs, Eigen::MatrixXf& h_diffs_expanded, const Eigen::MatrixXi& explored, int row, int col, int robot_size_cells){
+    float value = h_diffs(row, col);
+    for(int di = -robot_size_cells; di <= robot_size_cells; di++){
+        for(int dj = -robot_size_cells; dj <= robot_size_cells; dj++){
+            int cellX = row + di;
+            int cellY = col + dj;
+            if(!is_index_valid(cellX, cellY, h_diffs))
+                continue;
+            if (di*di + dj*dj > robot_size_cells*robot_size_cells){ // only inside a circle
+                continue;
+            }
+            if(!explored(cellX, cellY))
+                continue;
+            if (h_diffs(row, col) > h_diffs_expanded(cellX, cellY)){
+                h_diffs_expanded(cellX, cellY) = h_diffs(row, col);
+            } 
+        }
+    }
+}
 
 bool is_frontier_point(const Eigen::MatrixXf& mat, const Eigen::MatrixXi& explored, pairs point) {
 	// The point under consideration must be known
