@@ -18,6 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
   pcl_conversions
   tf
   tf_conversions
+  ompl
   # costmap_2d
 )
 
@@ -139,6 +140,7 @@ catkin_package(
 )
 
 find_package(Eigen3 REQUIRED)
+find_package(ompl REQUIRED)
 
 
 # include_directories(${EIGEN3_INCLUDE_DIR})
@@ -146,8 +148,10 @@ include_directories(
   SYSTEM
     ${catkin_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIR}
+    ${OMPL_INCLUDE_DIR}
 )
 add_definitions(${EIGEN_DEFINITIONS})
+add_definitions(${OMPL_DEFINITIONS})
 
 add_executable(odom_to_tf_transform src/odom_to_tf.cpp)
 target_link_libraries(odom_to_tf_transform
@@ -157,13 +161,11 @@ target_link_libraries(odom_to_tf_transform
 add_executable(gridmap_to_occupancy src/gridmap_to_occupancy.cpp)
 target_link_libraries(gridmap_to_occupancy
   ${catkin_LIBRARIES}
-  ${EIGEN3_INCLUDE_DIR}
 )
 
-add_executable(my_elevation_mapping src/my_elevation_mapping.cpp src/frontier.cpp)
+add_executable(my_elevation_mapping src/my_elevation_mapping.cpp src/frontier.cpp src/planner.cpp)
 target_link_libraries(my_elevation_mapping
   ${catkin_LIBRARIES}
-  ${EIGEN3_INCLUDE_DIR}
 )
 
 

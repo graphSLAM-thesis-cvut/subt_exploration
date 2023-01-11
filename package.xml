@@ -80,6 +80,7 @@
   <depend>pcl_ros</depend>
   <depend>libpcl-all-dev</depend>
   <depend>libpcl-all</depend>
+  <depend>ompl</depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

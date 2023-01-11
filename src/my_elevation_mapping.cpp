@@ -73,6 +73,8 @@ class ElevationMapper{
     float init_submap_height_offset_ = 0.0;
     float init_submap_radius_ = 0.0;
 
+    bool map_used_ = false;
+
     bool publish_traversability_ = false;
 
     std::string out_pcl_topic_ = "elevation";
@@ -411,7 +413,11 @@ class ElevationMapper{
         max_diff = std::max(max_diff, diff);
       }
       traversability_(i, j) = max_diff;
-      traversability_expanded_(i, j) = max_diff;
+      if (!map_used_)
+        traversability_expanded_(i, j) = max_diff;
+      else{
+        ROS_INFO("Not updating expanded traversability map as it is being used");
+      }
       return true;
     }
 
@@ -482,6 +488,7 @@ class ElevationMapper{
     }
 
     bool frontrier_cb(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response){
+      map_used_ = true;
       std::cout << "Finding frontiers!" << std::endl;
       pairs startPoint = getRobotCell();
       std::cout << "Robot coordinates: " << startPoint.first << " " << startPoint.second << std::endl;
@@ -570,7 +577,7 @@ class ElevationMapper{
 
       // Publish the data
       pub_travers_expanded_.publish(output);
-
+      map_used_ = false;
       return true;
   
     }
@@ -587,6 +594,14 @@ class ElevationMapper{
       return pairf(x, y);
     }
 
+    std::vector<pairs> get_path(pairs start_index, pairs end_index){
+      std::vector<pairs> path;
+
+
+      return path;
+    }
+
+    
 };
 
 
