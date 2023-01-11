@@ -10,10 +10,11 @@
 // TODO: 
 // - make obstacles wider - DONE
 // - specify maximum frontier length - DONE 
-// - extract one point interest from frontier
+// - do not expand frontiers where it is unreachable - DONE
+// - extract one interest point from frontier ~ avg point - DONE
+// - put all the parameters to the yaml file or take them as an input - DONE?
 // - specify maximum frontier expantion length ?
-// - put all the parameters to the yaml file or take them as an input
-// - maybe memorize previous frontiers
+// - maybe memorize previous frontiers ?
 
 
 using namespace std;

@@ -474,23 +474,48 @@ class ElevationMapper{
       std::vector<std::vector<pairs>> frontiers = wfd(traversability_, traversability_expanded_, explored_, startPoint.first, startPoint.second, robot_size_cells_, max_frontier_lenght_cells_);
       std::cout << "Found " << frontiers.size() << " frontiers!" << std::endl;
 
+      std::vector<pairs> interest_points;
+      for (auto& f: frontiers){
+        int c = 1;
+        float avg_i = 0;
+        float avg_j = 0;
+        for (auto& p: f){
+          avg_i = (c-1.0)/c * avg_i + float(p.first)/c;
+          avg_j = (c-1.0)/c * avg_j + float(p.second)/c;
+          c++;
+        }
+        interest_points.push_back(pairs(int(avg_i), int(avg_j)));
+      }
+
       sensor_msgs::PointCloud2 output;
       PointCloudType::Ptr pointCloudFrontier(new PointCloudType);
 
       pointCloudFrontier->header.frame_id = map_frame_;
       pointCloudFrontier->header.stamp = ros::Time::now().toNSec()/1000;
       
+      // int i = 0;
+      // for (auto& f: frontiers){
+      //   i++;
+      //   for (auto& p: f){
+      //     pairf xy = indexToPosition(p);
+      //     pcl::PointXYZI pt(float(i)/float(frontiers.size()));
+      //     pt.x = xy.first;
+      //     pt.y = xy.second;
+      //     pt.z = 0;
+      //     pointCloudFrontier->insert(pointCloudFrontier->end(), pt);
+      //   }
+      // }
       int i = 0;
-      for (auto& f: frontiers){
+      for (auto& p: interest_points){
         i++;
-        for (auto& p: f){
+        // for (auto& p: f){
           pairf xy = indexToPosition(p);
           pcl::PointXYZI pt(float(i)/float(frontiers.size()));
           pt.x = xy.first;
           pt.y = xy.second;
           pt.z = 0;
           pointCloudFrontier->insert(pointCloudFrontier->end(), pt);
-        }
+        // }
       }
 
       pcl::PCLPointCloud2 pcl_pc;
