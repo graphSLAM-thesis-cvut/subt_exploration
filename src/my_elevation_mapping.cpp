@@ -25,6 +25,7 @@
 #include <tf2_eigen/tf2_eigen.h>
 
 #include "frontier.hpp"
+#include "planner.hpp"
 #include <std_srvs/Empty.h>
 // #include <std_srvs/SetBoolResponse.h>
 // #include <utility>
@@ -577,6 +578,40 @@ class ElevationMapper{
 
       // Publish the data
       pub_travers_expanded_.publish(output);
+
+      std::vector<pairs> resulting_path;
+      if (interest_points.size() > 0)
+        resulting_path = plan(startPoint, frontiers[0][0], 10, optimalPlanner::PLANNER_RRTSTAR, planningObjective::OBJECTIVE_PATHCLEARANCE, traversability_expanded_, explored_, slope_th_);
+
+      if (resulting_path.size() > 0){
+        PointCloudType::Ptr pointCloudPath(new PointCloudType);
+        pointCloudPath->header.frame_id = map_frame_;
+        pointCloudPath->header = pointCloudFrontier->header;
+
+        // for (int i = startPoint.first-vis_radius_cells_; i <= startPoint.first + vis_radius_cells_; i++)
+        // {
+        //   for (int j = startPoint.second-vis_radius_cells_; j <= startPoint.second + vis_radius_cells_; j++)
+        //   {
+        for (auto& xy_ind: resulting_path){
+            pairf xy_coordinate = indexToPosition(xy_ind);
+            float coordinateX = xy_coordinate.first; 
+            float coordinateY = xy_coordinate.second;
+            pcl::PointXYZI p(1);
+            p.x = coordinateX;
+            p.y = coordinateY;
+            p.z = 0;
+            pointCloudPath->insert(pointCloudPath->end(), p);
+        }
+          // }
+        // }
+
+        pcl::toPCLPointCloud2(*pointCloudPath, pcl_pc);
+        pcl_conversions::fromPCL (pcl_pc, output);
+
+        // Publish the data
+        pub_frontier_.publish(output);
+      }
+
       map_used_ = false;
       return true;
   

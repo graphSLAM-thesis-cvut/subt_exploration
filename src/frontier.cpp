@@ -46,6 +46,7 @@ vector<vector<pairs>> wfd(const Eigen::MatrixXf& h_diffs, Eigen::MatrixXf& h_dif
 	// Cell state list for map/frontier open/closed
 	int map_size = h_diffs.rows() * h_diffs.cols();
 	std::map<pairs, int> cell_states;
+	std::map<pairs, pairs> prev_cell;
 	//
 	queue<pairs> q_m;	
 	q_m.push(pose_start);
@@ -155,6 +156,7 @@ vector<vector<pairs>> wfd(const Eigen::MatrixXf& h_diffs, Eigen::MatrixXf& h_dif
 					if(map_open_neighbor) {
 						q_m.push(ij1);
 						cell_states[ij1] = MAP_OPEN_LIST;
+						prev_cell[ij1] = cur_pos;
 					}
 				}
 			}

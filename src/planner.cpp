@@ -1,31 +1,15 @@
 #include "planner.hpp"
+#include "ompl/util/Console.h"
+#include "ompl/control/SpaceInformation.h"
 
 namespace ob = ompl::base;
+namespace oc = ompl::control;
 namespace og = ompl::geometric;
 /// @cond IGNORE
+// traversability - how long to enlarge obstacles
+// 
 
-// An enum of supported optimal planners, alphabetical order
-enum optimalPlanner
-{
-    PLANNER_AITSTAR,
-    PLANNER_BFMTSTAR,
-    PLANNER_BITSTAR,
-    PLANNER_CFOREST,
-    PLANNER_FMTSTAR,
-    PLANNER_INF_RRTSTAR,
-    PLANNER_PRMSTAR,
-    PLANNER_RRTSTAR,
-    PLANNER_SORRTSTAR,
-};
 
-// An enum of the supported optimization objectives, alphabetical order
-enum planningObjective
-{
-    OBJECTIVE_PATHCLEARANCE,
-    OBJECTIVE_PATHLENGTH,
-    OBJECTIVE_THRESHOLDPATHLENGTH,
-    OBJECTIVE_WEIGHTEDCOMBO
-};
 
 ob::OptimizationObjectivePtr getPathLengthObjective(const ob::SpaceInformationPtr& si)
 {
@@ -69,43 +53,50 @@ public:
         int y = int(state2D->values[1]);
         if (! isindexValid(x, y, explored_)){
             return false;
-        }if (!explored_->coeff(x, y)){
+        }
+        std::cout << "explored: " << explored_->coeff(x, y) << std::endl;
+        if (!explored_->coeff(x, y)){
             return false;
         }
+        std::cout << "trav: " << traversability_->coeff(x, y) << " th: " << slope_th_ << std::endl;
         if ((traversability_->coeff(x, y) > slope_th_) || (traversability_->coeff(x, y) == -1.0) ){
+            std::cout << (traversability_->coeff(x, y) > slope_th_) << " " << (traversability_->coeff(x, y) == -1.0) << std::endl; 
+
+            std::cout << "Returning false due to traversability " << std::endl;
             return false;
         }
+        std::cout << "Returning true " << std::endl;
         return true;
     }
 
     // Returns the distance from the given state's position to the
     // boundary of the circular obstacle.
-    double clearance(const ob::State* state) const override
-    {
-        // We know we're working with a RealVectorStateSpace in this
-        // example, so we downcast state into the specific type.
-        const auto* state2D =
-            state->as<ob::RealVectorStateSpace::StateType>();
+    // double clearance(const ob::State* state) const override
+    // {
+    //     // We know we're working with a RealVectorStateSpace in this
+    //     // example, so we downcast state into the specific type.
+    //     const auto* state2D =
+    //         state->as<ob::RealVectorStateSpace::StateType>();
 
-        // Extract the robot's (x,y) position from its state
-        double x = state2D->values[0];
-        double y = state2D->values[1];
+    //     // Extract the robot's (x,y) position from its state
+    //     double x = state2D->values[0];
+    //     double y = state2D->values[1];
 
-        // Distance formula between two points, offset by the circle's
-        // radius
-        return sqrt((x-0.5)*(x-0.5) + (y-0.5)*(y-0.5)) - 0.25;
-    }
+    //     // Distance formula between two points, offset by the circle's
+    //     // radius
+    //     return sqrt((x-0.5)*(x-0.5) + (y-0.5)*(y-0.5)) - 0.25;
+    // }
 };
 
 ob::PlannerPtr allocatePlanner(ob::SpaceInformationPtr si, optimalPlanner plannerType)
 {
     switch (plannerType)
     {
-        case PLANNER_AITSTAR:
-        {
-            return std::make_shared<og::AITstar>(si);
-            break;
-        }
+        // case PLANNER_AITSTAR:
+        // {
+        //     return std::make_shared<og::AITstar>(si);
+        //     break;
+        // }
         // case PLANNER_BFMTSTAR:
         // {
         //     return std::make_shared<og::BFMT>(si);
@@ -136,11 +127,12 @@ ob::PlannerPtr allocatePlanner(ob::SpaceInformationPtr si, optimalPlanner planne
         //     return std::make_shared<og::PRMstar>(si);
         //     break;
         // }
-        // case PLANNER_RRTSTAR:
-        // {
-        //     return std::make_shared<og::RRTstar>(si);
-        //     break;
-        // }
+        case PLANNER_RRTSTAR:
+        {
+            
+            return std::make_shared<og::RRTstar>(si);
+            break;
+        }
         // case PLANNER_SORRTSTAR:
         // {
         //     return std::make_shared<og::SORRTstar>(si);
@@ -178,34 +170,42 @@ ob::OptimizationObjectivePtr allocateObjective(const ob::SpaceInformationPtr& si
     }
 }
 
-void plan(double runTime, optimalPlanner plannerType, planningObjective objectiveType, const Eigen::MatrixXf& traversability, const Eigen::MatrixXi& explored, int slope_th)
+std::vector<std::pair<int, int>> plan(std::pair<int, int> startCoord, std::pair<int, int> goalCoord, 
+            double runTime, optimalPlanner plannerType, planningObjective objectiveType, 
+            Eigen::MatrixXf& traversability, Eigen::MatrixXi& explored, float slope_th)
 {
+    std::vector<std::pair<int, int>> result;
     // Construct the robot state space in which we're planning. We're
-    // planning in [0,1]x[0,1], a subset of R^2.
+    // planning in [0,5000]x[0,5000], a subset of R^2.
     auto space(std::make_shared<ob::RealVectorStateSpace>(2));
+    space->setLongestValidSegmentFraction(0.5);
+    // space->setMaxi = 0.1
+    // space->set
 
-    // Set the bounds of space to be in [0,1].
-    space->setBounds(0.0, 1.0);
+    // Set the bounds of space to be in [0,5000].
+    space->setBounds(0.0, 5000.0);
 
     // Construct a space information instance for this state space
     auto si(std::make_shared<ob::SpaceInformation>(space));
 
+
     // Set the object used to check which states in the space are valid
     si->setStateValidityChecker(std::make_shared<ValidityChecker>(si, traversability, explored, slope_th));
+    si->setStateValidityCheckingResolution(0.5);
 
     si->setup();
 
     // Set our robot's starting state to be the bottom-left corner of
     // the environment, or (0,0).
     ob::ScopedState<> start(space);
-    start->as<ob::RealVectorStateSpace::StateType>()->values[0] = 0.0;
-    start->as<ob::RealVectorStateSpace::StateType>()->values[1] = 0.0;
+    start->as<ob::RealVectorStateSpace::StateType>()->values[0] = double(startCoord.first);
+    start->as<ob::RealVectorStateSpace::StateType>()->values[1] = double(startCoord.second);
 
     // Set our robot's goal state to be the top-right corner of the
     // environment, or (1,1).
     ob::ScopedState<> goal(space);
-    goal->as<ob::RealVectorStateSpace::StateType>()->values[0] = 1.0;
-    goal->as<ob::RealVectorStateSpace::StateType>()->values[1] = 1.0;
+    goal->as<ob::RealVectorStateSpace::StateType>()->values[0] = double(goalCoord.first);
+    goal->as<ob::RealVectorStateSpace::StateType>()->values[1] = double(goalCoord.second);
 
     // Create a problem instance
     auto pdef(std::make_shared<ob::ProblemDefinition>(si));
@@ -219,14 +219,18 @@ void plan(double runTime, optimalPlanner plannerType, planningObjective objectiv
 
     // Construct the optimal planner specified by our command line argument.
     // This helper function is simply a switch statement.
-    ob::PlannerPtr optimizingPlanner = allocatePlanner(si, plannerType);
+    // ob::PlannerPtr optimizingPlanner = allocatePlanner(si, plannerType);
+    og::RRTstar* RRTPlanner = new og::RRTstar(si);
+    RRTPlanner->setRange(20.0);
 
+    ob::PlannerPtr optimizingPlanner(RRTPlanner);
+    
     // Set the problem instance for our planner to solve
     optimizingPlanner->setProblemDefinition(pdef);
     optimizingPlanner->setup();
 
     // attempt to solve the planning problem in the given runtime
-    ob::PlannerStatus solved = optimizingPlanner->solve(runTime);
+    ob::PlannerStatus solved = optimizingPlanner->solve(10);
     // std::string output_file = "out_plan.txt";
 
     if (solved)
@@ -248,9 +252,22 @@ void plan(double runTime, optimalPlanner plannerType, planningObjective objectiv
         //         printAsMatrix(outFile);
         //     outFile.close();
         // }
+         og::PathGeometric path( dynamic_cast< const og::PathGeometric& >( *pdef->getSolutionPath()));
+       const std::vector< ob::State* > &states = path.getStates();
+       ob::State *state;
+       for( size_t i = 0 ; i < states.size( ) ; ++i )
+       {
+        state = states[ i ]->as< ob::State >( );
+
+        std::pair<int, int> tempCoord;
+        tempCoord.first  = int(state->as<ob::RealVectorStateSpace::StateType>()->values[0]);
+        tempCoord.second = int(state->as<ob::RealVectorStateSpace::StateType>()->values[1]);
+        result.push_back(tempCoord);
+        }
     }
     else
         std::cout << "No solution found." << std::endl;
+    return result;
 }
 
 bool isindexValid(int i, int j, const Eigen::MatrixXi* mat){
