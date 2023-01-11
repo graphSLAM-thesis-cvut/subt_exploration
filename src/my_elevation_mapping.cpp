@@ -64,6 +64,8 @@ class ElevationMapper{
     int n_cells2_ = -1;
     uint32_t initTimeMs;
 
+    ros::Time last_update;
+
     float vis_radius_ = 6.0;
     int vis_radius_cells_ = 60;
 
@@ -95,6 +97,8 @@ class ElevationMapper{
 
     float max_frontier_length_ = 1.0;
     int max_frontier_lenght_cells_;
+
+    int map_update_frequency_;
 
 
     // tf::TransformListener transformListener_;
@@ -134,6 +138,7 @@ class ElevationMapper{
       pnh_.getParam("travers_expanded_topic", travers_expanded_topic_);
       pnh_.getParam("robot_size", robot_size_);
       pnh_.getParam("max_frontier_length", max_frontier_length_);
+      pnh_.getParam("map_update_frequency", map_update_frequency_);
 
       std::cout << "pcl_topic: " << pcl_topic_ << std::endl;
       std::cout << "origin1: " << origin1_ << std::endl;
@@ -154,6 +159,7 @@ class ElevationMapper{
       std::cout << "Frontiers expanded topic: " << travers_expanded_topic_ << std::endl;
       std::cout << "Robot size: " << robot_size_ << std::endl;
       std::cout << "Max frontier lenth: " << max_frontier_length_ << std::endl;
+      std::cout << "Update frequency: " << map_update_frequency_ << std::endl;
 
       n_cells1_ = int(size1_/resolution_);
       n_cells2_ = int(size2_/resolution_);
@@ -232,6 +238,15 @@ class ElevationMapper{
     {
       // Create a container for the data.
       // Container for original & filtered data
+      if (ros::Time::now() < last_update) // for going back in time - rosbag file
+        last_update = ros::Time::now();
+
+      if ((ros::Time::now() - last_update).toNSec() < 1/float(map_update_frequency_)*1000000000)
+        return;
+      
+
+      last_update = ros::Time::now();
+
       pcl::PCLPointCloud2 pcl_pc;
       pcl_conversions::toPCL(*pointCloudMsg, pcl_pc);
 

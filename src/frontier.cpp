@@ -11,8 +11,9 @@
 // - make obstacles wider - DONE
 // - specify maximum frontier length - DONE 
 // - do not expand frontiers where it is unreachable - DONE
-// - extract one interest point from frontier ~ avg point - DONE
+// - extract one interest point from frontier ~ avg point - DONE. TODO: closest to the average point
 // - put all the parameters to the yaml file or take them as an input - DONE?
+// - memorize distance to the frontier on the way
 // - specify maximum frontier expantion length ?
 // - maybe memorize previous frontiers ?
 

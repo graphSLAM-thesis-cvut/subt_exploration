@@ -24,6 +24,8 @@ vis_radius: 50
 
 max_frontier_length: 5
 
+map_update_frequency: 5
+
 # robot_base_frame_id:                        base_link
 # robot_base_frame_id:                        COSTAR_HUSKY
 # robot_pose_with_covariance_topic: "" # Leaving this empty skipps pose covariance updates.
