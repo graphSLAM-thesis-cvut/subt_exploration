@@ -9,8 +9,10 @@
 
 // TODO: 
 // - make obstacles wider - DONE
-// - specify maximum frontier length
-// - put all the parameters to the yaml file ot take them as an input
+// - specify maximum frontier length - DONE 
+// - extract one point interest from frontier
+// - specify maximum frontier expantion length ?
+// - put all the parameters to the yaml file or take them as an input
 // - maybe memorize previous frontiers
 
 
@@ -193,7 +195,7 @@ void expand(const Eigen::MatrixXf& h_diffs, Eigen::MatrixXf& h_diffs_expanded, c
             pairs ij1(i1, j1);
 			// ROS_INFO("wfd 6");
 			if(is_index_valid(i1, j1, h_diffs)) {
-				if(cell_states[ij1] != MAP_OPEN_LIST &&  cell_states[ij1] != MAP_CLOSE_LIST && h_diffs(i1, j1) < OCC_THRESHOLD && h_diffs(i1, j1) >=0 ) {
+				if(cell_states[ij1] != MAP_OPEN_LIST &&  cell_states[ij1] != MAP_CLOSE_LIST && h_diffs_expanded(i1, j1) < OCC_THRESHOLD && h_diffs_expanded(i1, j1) >=0 ) {
 
 			        // ROS_INFO("wfd 6.1");
 					// get_neighbours(v_neighbours, adj_vector[i], map_width);
@@ -206,7 +208,7 @@ void expand(const Eigen::MatrixXf& h_diffs, Eigen::MatrixXf& h_diffs_expanded, c
 						if(is_index_valid(i2, j2, h_diffs)) {
 
 			                // ROS_INFO("wfd 6.3");
-							if(h_diffs(i2, j2) < OCC_THRESHOLD && h_diffs(i2, j2) >= 0 && explored(i2, j2) ) { //>= 0 AANPASSING
+							if(h_diffs_expanded(i2, j2) < OCC_THRESHOLD && h_diffs_expanded(i2, j2) >= 0 && explored(i2, j2) ) { //>= 0 AANPASSING
                                 // ROS_INFO("wfd 6.4");
 								map_open_neighbor = true;
 								break;

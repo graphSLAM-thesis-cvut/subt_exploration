@@ -9,7 +9,7 @@ Panels:
         - /TF1/Frames1
         - /PointCloud21/Autocompute Value Bounds1
         - /DepthCloud1/Auto Size1
-        - /PointCloud25
+        - /PointCloud26
       Splitter Ratio: 0.6264705657958984
     Tree Height: 866
   - Class: rviz/Selection
@@ -351,8 +351,8 @@ Visualization Manager:
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 2.0520431995391846
-        Min Value: -0.5369224548339844
+        Max Value: 2.890530586242676
+        Min Value: -0.5611174702644348
         Value: true
       Axis: Z
       Channel Name: intensity
@@ -404,6 +404,34 @@ Visualization Manager:
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
+    - Alpha: 0.5
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 0
+        Min Value: 0
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz/PointCloud2
+      Color: 255; 255; 255
+      Color Transformer: Intensity
+      Decay Time: 0
+      Enabled: true
+      Invert Rainbow: true
+      Max Color: 85; 87; 83
+      Min Color: 243; 243; 243
+      Name: PointCloud2
+      Position Transformer: XYZ
+      Queue Size: 10
+      Selectable: true
+      Size (Pixels): 3
+      Size (m): 0.25
+      Style: Boxes
+      Topic: /travers_expanded
+      Unreliable: false
+      Use Fixed Frame: true
+      Use rainbow: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -432,7 +460,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 47.05378723144531
+      Distance: 41.258880615234375
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -448,9 +476,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.4447973668575287
+      Pitch: 0.7597983479499817
       Target Frame: <Fixed Frame>
-      Yaw: 0.5762027502059937
+      Yaw: 0.6762128472328186
     Saved: ~
 Window Geometry:
   Displays:
@@ -468,5 +496,5 @@ Window Geometry:
   Views:
     collapsed: true
   Width: 1920
-  X: 5120
-  Y: 0
+  X: 2880
+  Y: 138
