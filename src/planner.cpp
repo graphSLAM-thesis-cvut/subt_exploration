@@ -9,6 +9,10 @@ namespace og = ompl::geometric;
 // traversability - how long to enlarge obstacles
 // 
 
+// New idea:
+// - During increasing boundaries, also construct a repulsive function
+// - Use Djikstra algorithm, and the weight of the vertex would be max(rep(a), rep(b)) + dist(a, b)
+
 
 
 ob::OptimizationObjectivePtr getPathLengthObjective(const ob::SpaceInformationPtr& si)
@@ -172,7 +176,7 @@ ob::OptimizationObjectivePtr allocateObjective(const ob::SpaceInformationPtr& si
 
 std::vector<std::pair<int, int>> plan(std::pair<int, int> startCoord, std::pair<int, int> goalCoord, 
             double runTime, optimalPlanner plannerType, planningObjective objectiveType, 
-            Eigen::MatrixXf& traversability, Eigen::MatrixXi& explored, float slope_th)
+            Eigen::MatrixXf& traversability, Eigen::MatrixXi& explored, float slope_th, int upsampling_distance)
 {
     std::vector<std::pair<int, int>> result;
     // Construct the robot state space in which we're planning. We're
@@ -183,7 +187,18 @@ std::vector<std::pair<int, int>> plan(std::pair<int, int> startCoord, std::pair<
     // space->set
 
     // Set the bounds of space to be in [0,5000].
-    space->setBounds(0.0, 5000.0);
+    int distanceX = std::abs(goalCoord.first - startCoord.first) + 2;
+    int distanceY = std::abs(goalCoord.second - startCoord.second) + 2;
+    int highX = std::min( std::max(goalCoord.first+distanceX/2, startCoord.first + distanceX/2), int(explored.rows()));
+    int lowX = std::max( std::min(goalCoord.first-distanceX/2, startCoord.first - distanceX/2), 0);
+    int highY = std::min( std::max(goalCoord.second+distanceY/2, startCoord.second + distanceY/2), int(explored.cols()));
+    int lowY = std::max( std::min(goalCoord.second-distanceY/2, startCoord.second - distanceY/2), 0);
+    ob::RealVectorBounds bounds(2);
+    bounds.setHigh(0, highX);
+    bounds.setLow(0, lowX);
+    bounds.setHigh(1, highY);
+    bounds.setLow(1, lowY);
+    space->setBounds(bounds);
 
     // Construct a space information instance for this state space
     auto si(std::make_shared<ob::SpaceInformation>(space));
@@ -221,7 +236,7 @@ std::vector<std::pair<int, int>> plan(std::pair<int, int> startCoord, std::pair<
     // This helper function is simply a switch statement.
     // ob::PlannerPtr optimizingPlanner = allocatePlanner(si, plannerType);
     og::RRTstar* RRTPlanner = new og::RRTstar(si);
-    RRTPlanner->setRange(20.0);
+    RRTPlanner->setRange(5.0);
 
     ob::PlannerPtr optimizingPlanner(RRTPlanner);
     
@@ -230,7 +245,7 @@ std::vector<std::pair<int, int>> plan(std::pair<int, int> startCoord, std::pair<
     optimizingPlanner->setup();
 
     // attempt to solve the planning problem in the given runtime
-    ob::PlannerStatus solved = optimizingPlanner->solve(10);
+    ob::PlannerStatus solved = optimizingPlanner->solve(0.1);
     // std::string output_file = "out_plan.txt";
 
     if (solved)
@@ -257,18 +272,56 @@ std::vector<std::pair<int, int>> plan(std::pair<int, int> startCoord, std::pair<
        ob::State *state;
        for( size_t i = 0 ; i < states.size( ) ; ++i )
        {
-        state = states[ i ]->as< ob::State >( );
+            state = states[ i ]->as< ob::State >( );
 
-        std::pair<int, int> tempCoord;
-        tempCoord.first  = int(state->as<ob::RealVectorStateSpace::StateType>()->values[0]);
-        tempCoord.second = int(state->as<ob::RealVectorStateSpace::StateType>()->values[1]);
-        result.push_back(tempCoord);
-        }
+            std::pair<int, int> tempCoord;
+            tempCoord.first  = int(state->as<ob::RealVectorStateSpace::StateType>()->values[0]);
+            tempCoord.second = int(state->as<ob::RealVectorStateSpace::StateType>()->values[1]);
+
+        std::cout << "calling" << std::endl;
+            add_vertex_upsample(result, tempCoord, upsampling_distance);
+            // result.push_back(tempCoord);
+       }
     }
     else
         std::cout << "No solution found." << std::endl;
     return result;
 }
+
+
+void add_vertex_upsample(std::vector<std::pair<int, int>>& result, std::pair<int, int> end, int step){
+    
+    if(result.size() == 0){
+        result.push_back(end);
+        return;
+    }
+        // std::cout << "starting" << std::endl;
+    std::pair<int, int> start = result[result.size()-1];
+
+        // std::cout << "starting1" << std::endl;
+
+    std::pair<float, float> prev(start.first, start.second);
+        // std::cout << "starting2" << std::endl;
+    
+    float diffX = end.first - start.first;
+    float diffY = end.second - start.second;
+    float length = std::sqrt(diffX*diffX + diffY*diffY);
+    float lengthPassed = step;
+
+        // std::cout << "starting3" << std::endl;
+    std::pair<float, float> step_vector(diffX/step, diffY/step);
+
+    while (lengthPassed < length){
+        std::cout << "adding " << lengthPassed << " " << length<< std::endl;
+        std::pair<float, float> new_coord(prev.first+step_vector.first, prev.second+step_vector.second);
+        result.push_back(std::pair<int, int>(new_coord.first, new_coord.second));
+        prev = new_coord;
+        lengthPassed += step;
+    }
+    result.push_back(end);
+}
+
+
 
 bool isindexValid(int i, int j, const Eigen::MatrixXi* mat){
     return ( i >= 0 && j>=0 && i<mat->rows() && j<mat->cols() );

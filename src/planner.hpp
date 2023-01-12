@@ -59,7 +59,7 @@ enum planningObjective
 
 std::vector<std::pair<int, int>> plan(std::pair<int, int> startCoord, std::pair<int, int> goalCoord, 
             double runTime, optimalPlanner plannerType, planningObjective objectiveType, 
-            Eigen::MatrixXf& traversability, Eigen::MatrixXi& explored, float slope_th);
+            Eigen::MatrixXf& traversability, Eigen::MatrixXi& explored, float slope_th, int upsampling_distance = 2);
 
 
-
+void add_vertex_upsample(std::vector<std::pair<int, int>>& result, std::pair<int, int> end, int step);
