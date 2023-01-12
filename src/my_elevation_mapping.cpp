@@ -27,6 +27,7 @@
 #include "frontier.hpp"
 #include "planner.hpp"
 #include <std_srvs/Empty.h>
+#include "nav_msgs/Path.h"
 // #include <std_srvs/SetBoolResponse.h>
 // #include <utility>
 
@@ -86,6 +87,7 @@ class ElevationMapper{
     std::string travers_topic_ = "traversability";
     std::string frontiers_topic_ = "frontiers";
     std::string travers_expanded_topic_ = "travers_expanded";
+    std::string path_topic_ = "rrt_path";
     float slope_th_ = 0.1;
 
     Eigen::MatrixXf elevation_;
@@ -112,6 +114,7 @@ class ElevationMapper{
     ros::Publisher pub_pcl_gl_;
     ros::Publisher pub_frontier_;
     ros::Publisher pub_travers_expanded_;
+    ros::Publisher pub_path_;
     ros::Subscriber sub_;
 
     ros::ServiceServer service;
@@ -142,6 +145,7 @@ class ElevationMapper{
       pnh_.getParam("robot_size", robot_size_);
       pnh_.getParam("max_frontier_length", max_frontier_length_);
       pnh_.getParam("map_update_frequency", map_update_frequency_);
+      pnh_.getParam("path_topic", path_topic_);
 
       std::cout << "pcl_topic: " << pcl_topic_ << std::endl;
       std::cout << "origin1: " << origin1_ << std::endl;
@@ -163,6 +167,7 @@ class ElevationMapper{
       std::cout << "Robot size: " << robot_size_ << std::endl;
       std::cout << "Max frontier lenth: " << max_frontier_length_ << std::endl;
       std::cout << "Update frequency: " << map_update_frequency_ << std::endl;
+      std::cout << "path_topic " << path_topic_ << std::endl;
 
       n_cells1_ = int(size1_/resolution_);
       n_cells2_ = int(size2_/resolution_);
@@ -202,6 +207,7 @@ class ElevationMapper{
       pub_pcl_gl_ = nodeHandle_.advertise<sensor_msgs::PointCloud2> (transformed_pcl_topic_, 1);
       pub_frontier_ = nodeHandle_.advertise<sensor_msgs::PointCloud2> (frontiers_topic_, 1);
       pub_travers_expanded_ = nodeHandle_.advertise<sensor_msgs::PointCloud2> (travers_expanded_topic_, 1);
+      pub_path_ = nodeHandle_.advertise<nav_msgs::Path> (path_topic_, 1);
 
       service = nodeHandle_.advertiseService("detect_frontiers", &ElevationMapper::frontrier_cb, this);
 
@@ -584,32 +590,46 @@ class ElevationMapper{
         resulting_path = plan(startPoint, frontiers[0][0], 10, optimalPlanner::PLANNER_RRTSTAR, planningObjective::OBJECTIVE_PATHCLEARANCE, traversability_expanded_, explored_, slope_th_);
 
       if (resulting_path.size() > 0){
-        PointCloudType::Ptr pointCloudPath(new PointCloudType);
-        pointCloudPath->header.frame_id = map_frame_;
-        pointCloudPath->header = pointCloudFrontier->header;
+        nav_msgs::Path path;
+        // path.header.frame_id = map_frame_;
+        path.header = output.header;
 
         // for (int i = startPoint.first-vis_radius_cells_; i <= startPoint.first + vis_radius_cells_; i++)
         // {
         //   for (int j = startPoint.second-vis_radius_cells_; j <= startPoint.second + vis_radius_cells_; j++)
         //   {
+        std::vector<geometry_msgs::PoseStamped> poses;
+        int seq = 0;
         for (auto& xy_ind: resulting_path){
+            seq++;
             pairf xy_coordinate = indexToPosition(xy_ind);
-            float coordinateX = xy_coordinate.first; 
-            float coordinateY = xy_coordinate.second;
-            pcl::PointXYZI p(1);
-            p.x = coordinateX;
-            p.y = coordinateY;
-            p.z = 0;
-            pointCloudPath->insert(pointCloudPath->end(), p);
+            geometry_msgs::PoseStamped* pose = new geometry_msgs::PoseStamped();
+            pose->header=output.header;
+            pose->header.seq = seq;
+            geometry_msgs::Pose posee;
+            geometry_msgs::Quaternion orientation;
+            orientation.w = 0;
+            orientation.x = 0;
+            orientation.y = 0;
+            orientation.z = 0;
+            posee.orientation = orientation;
+            geometry_msgs::Point point;
+            point.x = xy_coordinate.first;
+            point.y = xy_coordinate.second;
+            point.z = 0;
+            posee.position = point;
+            pose->pose = posee;
+            poses.push_back(*pose);// ( insert(pointCloudPath->end(), p);
         }
+        path.poses = poses;
           // }
         // }
 
-        pcl::toPCLPointCloud2(*pointCloudPath, pcl_pc);
-        pcl_conversions::fromPCL (pcl_pc, output);
+        // pcl::toPCLPointCloud2(*pointCloudPath, pcl_pc);
+        // pcl_conversions::fromPCL (pcl_pc, output);
 
-        // Publish the data
-        pub_frontier_.publish(output);
+        // // Publish the data
+        pub_path_.publish(path);
       }
 
       map_used_ = false;
