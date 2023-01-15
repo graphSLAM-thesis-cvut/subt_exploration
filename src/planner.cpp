@@ -58,18 +58,18 @@ public:
         if (! isindexValid(x, y, explored_)){
             return false;
         }
-        std::cout << "explored: " << explored_->coeff(x, y) << std::endl;
+        // std::cout << "explored: " << explored_->coeff(x, y) << std::endl;
         if (!explored_->coeff(x, y)){
             return false;
         }
-        std::cout << "trav: " << traversability_->coeff(x, y) << " th: " << slope_th_ << std::endl;
+        // std::cout << "trav: " << traversability_->coeff(x, y) << " th: " << slope_th_ << std::endl;
         if ((traversability_->coeff(x, y) > slope_th_) || (traversability_->coeff(x, y) == -1.0) ){
             std::cout << (traversability_->coeff(x, y) > slope_th_) << " " << (traversability_->coeff(x, y) == -1.0) << std::endl; 
 
-            std::cout << "Returning false due to traversability " << std::endl;
+            // std::cout << "Returning false due to traversability " << std::endl;
             return false;
         }
-        std::cout << "Returning true " << std::endl;
+        // std::cout << "Returning true " << std::endl;
         return true;
     }
 

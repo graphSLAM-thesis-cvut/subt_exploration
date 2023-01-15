@@ -97,13 +97,25 @@ class ElevationMapper{
     Eigen::MatrixXf traversability_;
     Eigen::MatrixXf traversability_expanded_;
 
+    
+    std::vector<pairf> interest_points_;
+    std::vector<pairf> explored_interest_points_;
+
     float robot_size_ = resolution_;
     int robot_size_cells_;
 
-    float max_frontier_length_ = 1.0;
+    float max_frontier_length_ = 3.0;
     int max_frontier_lenght_cells_;
 
-    int map_update_frequency_;
+    int map_update_frequency_ = 50;
+
+    float min_frontier_length_ = 1.0;
+    int min_frontier_size_;
+
+    float explored_point_radius_ = 0.5;
+    int explored_point_radius_cells_;
+
+    int explored_point_radius_ency_;
 
 
     // tf::TransformListener transformListener_;
@@ -146,6 +158,7 @@ class ElevationMapper{
       pnh_.getParam("max_frontier_length", max_frontier_length_);
       pnh_.getParam("map_update_frequency", map_update_frequency_);
       pnh_.getParam("path_topic", path_topic_);
+      pnh_.getParam("explored_point_radius", explored_point_radius_);
 
       std::cout << "pcl_topic: " << pcl_topic_ << std::endl;
       std::cout << "origin1: " << origin1_ << std::endl;
@@ -166,14 +179,18 @@ class ElevationMapper{
       std::cout << "Frontiers expanded topic: " << travers_expanded_topic_ << std::endl;
       std::cout << "Robot size: " << robot_size_ << std::endl;
       std::cout << "Max frontier lenth: " << max_frontier_length_ << std::endl;
+      std::cout << "Min frontier lenth: " << min_frontier_length_ << std::endl;
       std::cout << "Update frequency: " << map_update_frequency_ << std::endl;
       std::cout << "path_topic " << path_topic_ << std::endl;
+      std::cout << "explored_point_radius " << explored_point_radius_ << std::endl;
 
       n_cells1_ = int(size1_/resolution_);
       n_cells2_ = int(size2_/resolution_);
       vis_radius_cells_ = int(vis_radius_/resolution_);
       robot_size_cells_ = int(robot_size_/resolution_);
       max_frontier_lenght_cells_ = int(max_frontier_length_/resolution_);
+      min_frontier_size_ = int(min_frontier_length_/resolution_);
+      explored_point_radius_cells_ = int(explored_point_radius_/resolution_);
 
       std::cout << "INITIALIZING MATRICIES" << std::endl;
       elevation_.resize(n_cells1_, n_cells2_);
@@ -189,6 +206,8 @@ class ElevationMapper{
       std::cout << "vis_radius_cells: " << vis_radius_cells_ << std::endl;
       std::cout << "robot_size_cells_: " << robot_size_cells_ << std::endl;
       std::cout << "max_frontier_lenght_cells_: " << max_frontier_lenght_cells_ << std::endl;
+      std::cout << "min_frontier_size_: " << min_frontier_size_ << std::endl;
+      std::cout << "explored_point_radius_cells_: " << explored_point_radius_cells_ << std::endl;
 
       for (size_t i = 0; i < n_cells1_; i++)
       {
@@ -494,26 +513,21 @@ class ElevationMapper{
       return true;
     }
 
+
+
     bool frontrier_cb(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response){
       map_used_ = true;
       std::cout << "Finding frontiers!" << std::endl;
       pairs startPoint = getRobotCell();
       std::cout << "Robot coordinates: " << startPoint.first << " " << startPoint.second << std::endl;
 
-      std::vector<std::vector<pairs>> frontiers = wfd(traversability_, traversability_expanded_, explored_, startPoint.first, startPoint.second, robot_size_cells_, max_frontier_lenght_cells_);
+      std::vector<std::vector<pairs>> frontiers = wfd(traversability_, traversability_expanded_, explored_, startPoint.first, startPoint.second, robot_size_cells_, max_frontier_lenght_cells_, min_frontier_size_, slope_th_);
       std::cout << "Found " << frontiers.size() << " frontiers!" << std::endl;
 
       std::vector<pairs> interest_points;
       for (auto& f: frontiers){
-        int c = 1;
-        float avg_i = 0;
-        float avg_j = 0;
-        for (auto& p: f){
-          avg_i = (c-1.0)/c * avg_i + float(p.first)/c;
-          avg_j = (c-1.0)/c * avg_j + float(p.second)/c;
-          c++;
-        }
-        interest_points.push_back(pairs(int(avg_i), int(avg_j)));
+        pairs interest_point = get_interest_point(f);
+        interest_points.push_back(interest_point);
       }
 
       sensor_msgs::PointCloud2 output;
@@ -522,18 +536,6 @@ class ElevationMapper{
       pointCloudFrontier->header.frame_id = map_frame_;
       pointCloudFrontier->header.stamp = ros::Time::now().toNSec()/1000;
       
-      // int i = 0;
-      // for (auto& f: frontiers){
-      //   i++;
-      //   for (auto& p: f){
-      //     pairf xy = indexToPosition(p);
-      //     pcl::PointXYZI pt(float(i)/float(frontiers.size()));
-      //     pt.x = xy.first;
-      //     pt.y = xy.second;
-      //     pt.z = 0;
-      //     pointCloudFrontier->insert(pointCloudFrontier->end(), pt);
-      //   }
-      // }
       int i = 0;
       for (auto& p: interest_points){
         i++;
@@ -586,18 +588,18 @@ class ElevationMapper{
       pub_travers_expanded_.publish(output);
 
       std::vector<pairs> resulting_path;
-      if (interest_points.size() > 0)
-        resulting_path = plan(startPoint, frontiers[0][0], 10, optimalPlanner::PLANNER_RRTSTAR, planningObjective::OBJECTIVE_PATHCLEARANCE, traversability_expanded_, explored_, slope_th_);
-
+      if (interest_points.size() > 0){
+        pairs chosen_point = choose_point(interest_points);
+        if (chosen_point.first < 0) {
+          std::cout << "No exploration points left!" << std::endl;
+        } else {
+          resulting_path = plan(startPoint, chosen_point, 10, optimalPlanner::PLANNER_RRTSTAR, planningObjective::OBJECTIVE_PATHCLEARANCE, traversability_expanded_, explored_, slope_th_);
+        }
+      }
       if (resulting_path.size() > 0){
         nav_msgs::Path path;
-        // path.header.frame_id = map_frame_;
         path.header = output.header;
 
-        // for (int i = startPoint.first-vis_radius_cells_; i <= startPoint.first + vis_radius_cells_; i++)
-        // {
-        //   for (int j = startPoint.second-vis_radius_cells_; j <= startPoint.second + vis_radius_cells_; j++)
-        //   {
         std::vector<geometry_msgs::PoseStamped> poses;
         int seq = 0;
         for (auto& xy_ind: resulting_path){
@@ -619,14 +621,9 @@ class ElevationMapper{
             point.z = 0;
             posee.position = point;
             pose->pose = posee;
-            poses.push_back(*pose);// ( insert(pointCloudPath->end(), p);
+            poses.push_back(*pose);
         }
         path.poses = poses;
-          // }
-        // }
-
-        // pcl::toPCLPointCloud2(*pointCloudPath, pcl_pc);
-        // pcl_conversions::fromPCL (pcl_pc, output);
 
         // // Publish the data
         pub_path_.publish(path);
@@ -656,8 +653,52 @@ class ElevationMapper{
       return path;
     }
 
-    
+    pairs get_interest_point(std::vector<pairs>& frontier){
+      pairs result;
+      int c = 1;
+      float avg_i = 0;
+      float avg_j = 0;
+      for (auto& p: frontier){
+        avg_i = (c-1.0)/c * avg_i + float(p.first)/c;
+        avg_j = (c-1.0)/c * avg_j + float(p.second)/c;
+        c++;
+      }
+      pairs avg_point = pairs(int(avg_i), int(avg_j));
+      float min_d = INFINITY;
+      for (auto& p: frontier){
+        float cur_d = std::pow(avg_point.first - p.first, 2) + std::pow(avg_point.second - p.second, 2);
+        if (cur_d < min_d){
+          min_d = cur_d;
+          result = p;
+        }
+      }
+      return result;
+    }
+
+    pairs choose_point(std::vector<pairs> points){
+      for (auto& p : points)
+      {
+          bool suits = true;
+          for (auto& ex_p : explored_interest_points_){
+            if (std::sqrt(std::pow(p.first - ex_p.first, 2) + std::pow(p.second - ex_p.second, 2)) < explored_point_radius_cells_){
+              suits = false;
+              break;
+            }
+          }
+          if (suits) {
+            explored_interest_points_.push_back(p);
+            return p;
+          }
+      }
+      return pairs(-1, -1);
+      
+    }
+
 };
+
+    
+
+
 
 
 int
