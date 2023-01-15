@@ -32,6 +32,13 @@
 // #include <utility>
 
 
+const int MAP_OPEN_LIST = 1, MAP_CLOSE_LIST = 2;
+
+const int N_S4 = 4;
+
+const int offsetx4[N_S4] = {0, 0, 1, -1};
+const int offsety4[N_S4] = {1, -1, 0, 0};
+
 typedef std::pair<int, int> pairs;
 typedef std::pair<float, float> pairf;
 
@@ -462,8 +469,38 @@ class ElevationMapper{
       }
       float x_coord = transformTf.transform.translation.x ;
       float y_coord = transformTf.transform.translation.y ;
+
       answer = positionToIndex(pairf(x_coord, y_coord));
       return answer;
+    }
+
+    pairs get_nearest_good_cell(pairs check_cell, int windowSize){
+
+      std::map<pairs, int> cell_states;
+      std::queue<pairs> q_m;	
+      q_m.push(check_cell);
+      cell_states[check_cell] = MAP_OPEN_LIST;
+      int adj_vector[N_S4];
+      int v_neighbours[N_S4];
+      //
+      // ROS_INFO("wfd 1");
+      while(!q_m.empty()) {
+        auto& current_cell = q_m.front();      
+        int current_i = current_cell.first;
+        int current_j = current_cell.second;
+        for (int t = 0; t < N_S4; t++)
+        {
+          int i = current_i + offsetx4[t];
+          int j = current_j + offsety4[t];
+          auto ij = pairs(i, j);
+          if(cell_states[ij] != MAP_OPEN_LIST && cell_states[ij] != MAP_CLOSED_LIST)
+          if(explored_(i, j) && traversability_(i, j) >=0 && traversability_expanded_(i, j) < slope_th_)
+            return pairs(i, j)
+
+        }
+        
+        
+      }
     }
 
     bool init_submap(){
