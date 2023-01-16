@@ -39,6 +39,12 @@ const int N_S4 = 4;
 const int offsetx4[N_S4] = {0, 0, 1, -1};
 const int offsety4[N_S4] = {1, -1, 0, 0};
 
+
+const int N_S = 8;
+
+const int offsetx[8] = {0, 0, 1, -1, 1, 1, -1, -1};
+const int offsety[8] = {1, -1, 0, 0, 1, -1, 1, -1};
+
 typedef std::pair<int, int> pairs;
 typedef std::pair<float, float> pairf;
 
@@ -471,10 +477,11 @@ class ElevationMapper{
       float y_coord = transformTf.transform.translation.y ;
 
       answer = positionToIndex(pairf(x_coord, y_coord));
+
       return answer;
     }
 
-    pairs get_nearest_good_cell(pairs check_cell, int windowSize){
+    pairs get_nearest_traversable_cell(pairs check_cell){
 
       std::map<pairs, int> cell_states;
       std::queue<pairs> q_m;	
@@ -485,7 +492,11 @@ class ElevationMapper{
       //
       // ROS_INFO("wfd 1");
       while(!q_m.empty()) {
-        auto& current_cell = q_m.front();      
+        auto& current_cell = q_m.front();
+		    q_m.pop();
+        if(cell_states[current_cell] == MAP_CLOSE_LIST)
+			    continue;    
+
         int current_i = current_cell.first;
         int current_j = current_cell.second;
         for (int t = 0; t < N_S4; t++)
@@ -493,15 +504,48 @@ class ElevationMapper{
           int i = current_i + offsetx4[t];
           int j = current_j + offsety4[t];
           auto ij = pairs(i, j);
-          if(cell_states[ij] != MAP_OPEN_LIST && cell_states[ij] != MAP_CLOSED_LIST)
-          if(explored_(i, j) && traversability_(i, j) >=0 && traversability_expanded_(i, j) < slope_th_)
-            return pairs(i, j)
-
+          if (!isIndexValid(i, j))
+            continue;
+          if(cell_states[ij] == MAP_OPEN_LIST || cell_states[ij] == MAP_CLOSE_LIST)
+            continue;
+          if(explored_(i, j) && traversability_(i, j) >=0 && traversability_expanded_(i, j) < slope_th_ && !is_frontier_point(ij))
+            return pairs(i, j);
+          q_m.push(ij);
+          cell_states[ij] = MAP_OPEN_LIST;
         }
-        
-        
+        cell_states[current_cell] = MAP_CLOSE_LIST;
+      }
+      return pairs(-1, -1);
+    }
+
+    bool is_frontier_point(pairs point) {
+    // The point under consideration must be known
+    if(!is_explored(point.first, point.second, traversability_expanded_, explored_) || traversability_expanded_(point.first, point.second) > slope_th_ ) {
+      return false;
+    }
+
+    int found = 0;
+      int col;
+      int row;
+    for(int i = 0; i < N_S; i++) {
+          row = offsetx[i] + point.first;
+          col = offsety[i] + point.second;
+      if(is_index_valid(row, col, traversability_expanded_)) {
+        // None of the neighbours should be occupied space.		
+        if(traversability_expanded_(row, col) > slope_th_ && is_explored(row, col, traversability_expanded_, explored_)) {
+          return false;
+        }
+        //At least one of the neighbours is open and known space, hence frontier point
+        if(!is_explored(row, col,  traversability_expanded_, explored_)) {
+          found++;
+          //
+          if(found == 1) 
+            return true;
+        }
       }
     }
+    return false;
+  }
 
     bool init_submap(){
       geometry_msgs::TransformStamped transformTf;
@@ -555,15 +599,25 @@ class ElevationMapper{
     bool frontrier_cb(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response){
       map_used_ = true;
       std::cout << "Finding frontiers!" << std::endl;
-      pairs startPoint = getRobotCell();
+      pairs robotPoint = getRobotCell();
+      pairs startPoint = get_nearest_traversable_cell(robotPoint);
       std::cout << "Robot coordinates: " << startPoint.first << " " << startPoint.second << std::endl;
-
+      if (startPoint.first < 0){
+        ROS_ERROR("Could find a traversable cell around robot");
+        std::cout << "Could find a traversable cell around robot" << std::endl;
+        return false;
+      }
       std::vector<std::vector<pairs>> frontiers = wfd(traversability_, traversability_expanded_, explored_, startPoint.first, startPoint.second, robot_size_cells_, max_frontier_lenght_cells_, min_frontier_size_, slope_th_);
       std::cout << "Found " << frontiers.size() << " frontiers!" << std::endl;
 
       std::vector<pairs> interest_points;
       for (auto& f: frontiers){
         pairs interest_point = get_interest_point(f);
+        auto interest_pt_coord = indexToPosition(interest_point);
+        // TODO: make as a parameter!!!
+        if (interest_pt_coord.first < 12)
+          continue;
+        
         interest_points.push_back(interest_point);
       }
 
