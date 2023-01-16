@@ -5,6 +5,22 @@
 namespace ob = ompl::base;
 namespace oc = ompl::control;
 namespace og = ompl::geometric;
+
+
+const int MAP_OPEN_LIST = 1, MAP_CLOSE_LIST = 2, FRONTIER_OPEN_LIST = 3, FRONTIER_CLOSE_LIST = 4;
+// const float travTh = 0.1;
+
+const int N_S = 8;
+
+const int offsetx[8] = {0, 0, 1, -1, 1, 1, -1, -1};
+const int offsety[8] = {1, -1, 0, 0, 1, -1, 1, -1};
+
+const int N_S4 = 4;
+
+const int offsetx4[N_S] = {0, 0, 1, -1};
+const int offsety4[N_S] = {1, -1, 0, 0};
+
+const int MIN_FOUND = 1;
 /// @cond IGNORE
 // traversability - how long to enlarge obstacles
 // 
@@ -14,6 +30,19 @@ namespace og = ompl::geometric;
 // - Use Djikstra algorithm, and the weight of the vertex would be max(rep(a), rep(b)) + dist(a, b)
 
 
+class ClearanceObjective : public ob::StateCostIntegralObjective
+{
+public:
+    ClearanceObjective(const ob::SpaceInformationPtr& si) :
+        ob::StateCostIntegralObjective(si, true)
+    {
+    }
+
+    ob::Cost stateCost(const ob::State* s) const
+    {
+        return ob::Cost(1 / si_->getStateValidityChecker()->clearance(s));
+    }
+};
 
 ob::OptimizationObjectivePtr getPathLengthObjective(const ob::SpaceInformationPtr& si)
 {
@@ -22,7 +51,22 @@ ob::OptimizationObjectivePtr getPathLengthObjective(const ob::SpaceInformationPt
 
 // ob::OptimizationObjectivePtr getThresholdPathLengthObj(const ob::SpaceInformationPtr& si);
 
-// ob::OptimizationObjectivePtr getClearanceObjective(const ob::SpaceInformationPtr& si);
+ob::OptimizationObjectivePtr getClearanceObjective(const ob::SpaceInformationPtr& si)
+{
+    return std::make_shared<ClearanceObjective>(si);
+}
+
+ob::OptimizationObjectivePtr getBalancedObjective(const ob::SpaceInformationPtr& si)
+{
+    ob::OptimizationObjectivePtr lengthObj(new ob::PathLengthOptimizationObjective(si));
+    ob::OptimizationObjectivePtr clearObj(new ClearanceObjective(si));
+
+    ob::MultiOptimizationObjective* opt = new ob::MultiOptimizationObjective(si);
+    opt->addObjective(lengthObj, 10.0);
+    opt->addObjective(clearObj, 10.0);
+
+    return ob::OptimizationObjectivePtr(opt);
+}
 
 // ob::OptimizationObjectivePtr getBalancedObjective1(const ob::SpaceInformationPtr& si);
 
@@ -35,14 +79,23 @@ class ValidityChecker : public ob::StateValidityChecker
 private:
     Eigen::MatrixXf* traversability_;
     Eigen::MatrixXi* explored_;
+    Eigen::MatrixXf clearity_;
     float slope_th_;
+    pairs start_coords_;
+    std::vector<pairs> obsts_;
 
 public:
-    ValidityChecker(ob::SpaceInformationPtr& si, Eigen::MatrixXf& traversability, Eigen::MatrixXi& explored, float slope_th = 0.2) :
+    ValidityChecker(ob::SpaceInformationPtr& si, Eigen::MatrixXf& traversability, Eigen::MatrixXi& explored, float slope_th, pairs start_coord) :
         ob::StateValidityChecker(si) {
             traversability_ = &traversability;
             explored_ = &explored;
             slope_th_ = slope_th;
+            clearity_.resize(explored_->rows(), explored_->cols());
+            start_coords_ = start_coord;
+
+            get_obstacles();
+            get_clarities();
+
         }
 
     // Returns whether the given state's position overlaps the
@@ -64,7 +117,7 @@ public:
         }
         // std::cout << "trav: " << traversability_->coeff(x, y) << " th: " << slope_th_ << std::endl;
         if ((traversability_->coeff(x, y) > slope_th_) || (traversability_->coeff(x, y) == -1.0) ){
-            std::cout << (traversability_->coeff(x, y) > slope_th_) << " " << (traversability_->coeff(x, y) == -1.0) << std::endl; 
+            // std::cout << (traversability_->coeff(x, y) > slope_th_) << " " << (traversability_->coeff(x, y) == -1.0) << std::endl; 
 
             // std::cout << "Returning false due to traversability " << std::endl;
             return false;
@@ -73,24 +126,129 @@ public:
         return true;
     }
 
-    // Returns the distance from the given state's position to the
-    // boundary of the circular obstacle.
-    // double clearance(const ob::State* state) const override
-    // {
-    //     // We know we're working with a RealVectorStateSpace in this
-    //     // example, so we downcast state into the specific type.
-    //     const auto* state2D =
-    //         state->as<ob::RealVectorStateSpace::StateType>();
+    double clearance(const ob::State* state) const
+    {
+        // We know we're working with a RealVectorStateSpace in this
+        // example, so we downcast state into the specific type.
+        const ob::RealVectorStateSpace::StateType* state2D =
+            state->as<ob::RealVectorStateSpace::StateType>();
+ 
+        // Extract the robot's (x,y) position from its state
+        int x = int(state2D->values[0]);
+        int y = int(state2D->values[1]);
+ 
+        // Distance formula between two points, offset by the circle's
+        // radius
+        return clearity_(x, y);
+    }
 
-    //     // Extract the robot's (x,y) position from its state
-    //     double x = state2D->values[0];
-    //     double y = state2D->values[1];
+    bool get_obstacles(){
+        //detect all obstacles
+        std::vector<pairs> obsts_;
+        auto check_cell = start_coords_;
+        clearity_(check_cell.first, check_cell.second) = 0;
+        // get all the obstacles cells
+        std::map<pairs, int> cell_states;
+        std::queue<pairs> q_m;	
+        q_m.push(check_cell);
+        cell_states[check_cell] = MAP_OPEN_LIST;
+        int adj_vector[N_S4];
+        int v_neighbours[N_S4];
+        //
+        // ROS_INFO("wfd 1");
+        while(!q_m.empty()) {
+            auto& current_cell = q_m.front();
+                q_m.pop();
+            if(cell_states[current_cell] == MAP_CLOSE_LIST)
+                    continue;    
 
-    //     // Distance formula between two points, offset by the circle's
-    //     // radius
-    //     return sqrt((x-0.5)*(x-0.5) + (y-0.5)*(y-0.5)) - 0.25;
-    // }
+            int current_i = current_cell.first;
+            int current_j = current_cell.second;
+            for (int t = 0; t < N_S4; t++)
+            {
+                int i = current_i + offsetx4[t];
+                int j = current_j + offsety4[t];
+                auto ij = pairs(i, j);
+                if (!isindexValid(i, j, explored_))
+                    continue;
+                if(cell_states[ij] == MAP_OPEN_LIST || cell_states[ij] == MAP_CLOSE_LIST) // ignore used cells
+                    continue;
+                if(explored_->coeff(i, j) && traversability_->coeff(i, j) >=0 && traversability_->coeff(i, j) <= slope_th_){ // propagate through clear cells
+                    clearity_(i, j) = 0;
+                    q_m.push(ij);
+                    cell_states[ij] = MAP_OPEN_LIST;
+                }
+                if(explored_->coeff(i, j) && traversability_->coeff(i, j) >= slope_th_){ // add obstacles
+                    obsts_.push_back(ij);
+                    cell_states[ij] = MAP_CLOSE_LIST;
+                    clearity_(i, j) = 0;
+                }
+            }
+            cell_states[current_cell] = MAP_CLOSE_LIST;
+        }
+
+        // q_m.
+        return true;//pairs(-1, -1);    
+    }
+
+     bool get_clarities(){ // call only after you call get_obstacles
+        //detect all obstacles
+        // std::vector<pairs> obsts_;
+        // auto check_cell = start_coords_;
+        // clearity_(check_cell.first, check_cell.second) = 0;
+        // get all the obstacles cells
+        std::map<pairs, int> cell_states;
+        // std::map<pairs, int> cell_clarity;
+        std::queue<pairs> q_m;	
+        // q_m.push(check_cell);
+        // cell_states[check_cell] = MAP_OPEN_LIST;
+        for(auto& ob: obsts_){
+            cell_states[ob] = MAP_OPEN_LIST;
+            clearity_(ob.first, ob.second) = 0;
+            q_m.push(ob);
+        }
+        int adj_vector[N_S4];
+        int v_neighbours[N_S4];
+        //
+        // ROS_INFO("wfd 1");
+        while(!q_m.empty()) {
+            auto& current_cell = q_m.front();
+                q_m.pop();
+            if(cell_states[current_cell] == MAP_CLOSE_LIST)
+                    continue;    
+
+            int current_i = current_cell.first;
+            int current_j = current_cell.second;
+            for (int t = 0; t < N_S4; t++)
+            {
+                int i = current_i + offsetx4[t];
+                int j = current_j + offsety4[t];
+                auto ij = pairs(i, j);
+                if (!isindexValid(i, j, explored_))
+                    continue;
+                if(cell_states[ij] == MAP_OPEN_LIST || cell_states[ij] == MAP_CLOSE_LIST) // ignore used cells
+                    continue;
+                if(explored_->coeff(i, j) && traversability_->coeff(i, j) >=0 && traversability_->coeff(i, j) <= slope_th_){ // propagate through clear cells, and add clarity there
+                    clearity_(i, j) = 0;
+                    q_m.push(ij);
+                    cell_states[ij] = MAP_OPEN_LIST;
+                    clearity_(i, j) = clearity_(current_i, current_j) + 1;
+                }
+            }
+            cell_states[current_cell] = MAP_CLOSE_LIST;
+        }
+
+        // q_m.
+        return true;//pairs(-1, -1);    
+    }
+
+
+
+
+
 };
+
+
 
 ob::PlannerPtr allocatePlanner(ob::SpaceInformationPtr si, optimalPlanner plannerType)
 {
@@ -155,18 +313,18 @@ ob::OptimizationObjectivePtr allocateObjective(const ob::SpaceInformationPtr& si
 {
     switch (objectiveType)
     {
-        // case OBJECTIVE_PATHCLEARANCE:
-        //     return getClearanceObjective(si);
-        //     break;
+        case OBJECTIVE_PATHCLEARANCE:
+            return getClearanceObjective(si);
+            break;
         case OBJECTIVE_PATHLENGTH:
             return getPathLengthObjective(si);
             break;
         // case OBJECTIVE_THRESHOLDPATHLENGTH:
         //     return getThresholdPathLengthObj(si);
         //     break;
-        // case OBJECTIVE_WEIGHTEDCOMBO:
-        //     return getBalancedObjective1(si);
-        //     break;
+        case OBJECTIVE_WEIGHTEDCOMBO:
+            return getBalancedObjective(si);
+            break;
         default:
             OMPL_ERROR("Optimization-objective enum is not implemented in allocation function.");
             return ob::OptimizationObjectivePtr();
@@ -205,7 +363,7 @@ std::vector<std::pair<int, int>> plan(std::pair<int, int> startCoord, std::pair<
 
 
     // Set the object used to check which states in the space are valid
-    si->setStateValidityChecker(std::make_shared<ValidityChecker>(si, traversability, explored, slope_th));
+    si->setStateValidityChecker(std::make_shared<ValidityChecker>(si, traversability, explored, slope_th, startCoord));
     si->setStateValidityCheckingResolution(0.5);
 
     si->setup();

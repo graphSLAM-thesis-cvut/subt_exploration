@@ -30,6 +30,7 @@
 
 #include <fstream>
 
+using pairs = std::pair<int, int>;
 
 bool isindexValid(int i, int j, const Eigen::MatrixXi* mat);
 // An enum of supported optimal planners, alphabetical order

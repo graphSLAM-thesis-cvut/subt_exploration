@@ -684,7 +684,7 @@ class ElevationMapper{
         if (chosen_point.first < 0) {
           std::cout << "No exploration points left!" << std::endl;
         } else {
-          resulting_path = plan(startPoint, chosen_point, 10, optimalPlanner::PLANNER_RRTSTAR, planningObjective::OBJECTIVE_PATHCLEARANCE, traversability_expanded_, explored_, slope_th_);
+          resulting_path = plan(startPoint, chosen_point, 10, optimalPlanner::PLANNER_RRTSTAR, planningObjective::OBJECTIVE_WEIGHTEDCOMBO, traversability_expanded_, explored_, slope_th_);
         }
       }
       if (resulting_path.size() > 0){
