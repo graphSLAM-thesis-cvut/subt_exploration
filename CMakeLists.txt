@@ -144,6 +144,7 @@ find_package(ompl REQUIRED)
 
 
 # include_directories(${EIGEN3_INCLUDE_DIR})
+include_directories(include)
 include_directories(
   SYSTEM
     ${catkin_INCLUDE_DIRS}

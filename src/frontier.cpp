@@ -166,7 +166,6 @@ vector<vector<pairs>> wfd(const Eigen::MatrixXf& h_diffs, Eigen::MatrixXf& h_dif
 		// ROS_INFO("wfd 7.1");
 	}
 	// prepare map for path planning
-	expand(h_diffs, h_diffs_expanded, explored, posex, posey, robot_size_cells, travTh, true);
 	// ROS_INFO("wfd 8");
 	return frontiers;
 }

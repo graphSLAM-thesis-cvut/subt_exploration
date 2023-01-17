@@ -29,6 +29,8 @@
 #include <std_srvs/Empty.h>
 #include "nav_msgs/Path.h"
 
+#include "subt_params.h"
+
 typedef std::pair<int, int> pairs;
 typedef std::pair<float, float> pairf;
 
@@ -45,7 +47,7 @@ public:
         readPearameters();
         float robotPosition[3];
         getRobotPosition3D(robotPosition, 20.0);
-        mapper_ = new ElevationMapper(nodeHandle, privateNodeHandle, robotPosition);
+        mapper_ = new ElevationMapper(nodeHandle, privateNodeHandle, robotPosition, conf);
 
         initTimeMs = ros::Time::now().toNSec() / 1000000;
         initializeInterface();
@@ -61,25 +63,7 @@ private:
 
     ElevationMapper *mapper_;
 
-    bool publish_traversability_ = false;
-
-
-    float resolution_ = 0.1;
-    float vis_radius_ = 6.0;
-    int vis_radius_cells_ = 60;
-
-    std::string out_pcl_topic_ = "elevation";
-    std::string transformed_pcl_topic_ = "pcl_glob";
-    std::string pcl_topic_ = "COSTAR_HUSKY/points";
-    std::string map_frame_ = "COSTAR_HUSKY/odom";
-    std::string init_submap_frame_ = "COSTAR_HUSKY";
-    std::string travers_topic_ = "traversability";
-    std::string frontiers_topic_ = "frontiers";
-    std::string travers_expanded_topic_ = "travers_expanded";
-    std::string path_topic_ = "rrt_path";
-
-    std::vector<pairf> interest_points_;
-    std::vector<pairf> explored_interest_points_;
+    subt_params::Params conf;
 
     // tf::TransformListener transformListener_;
     tf2_ros::Buffer *tf_buffer_;
@@ -89,71 +73,101 @@ private:
     ros::Publisher pub_pcl_gl_;
     ros::Publisher pub_frontier_;
     ros::Publisher pub_travers_expanded_;
+    ros::Publisher pub_travers_expanded_plan_;
     ros::Publisher pub_path_;
+    ros::Publisher pub_clearity_;
     ros::Subscriber sub_;
 
     ros::ServiceServer service;
 
     uint32_t initTimeMs;
     ros::Time last_update;
-    int map_update_frequency_ = 50;
 
     // methods
 
     bool readPearameters()
     {
-        pnh_.getParam("pcl_topic", pcl_topic_);
-        pnh_.getParam("out_pcl_topic", out_pcl_topic_);
-        pnh_.getParam("map_frame", map_frame_);
-        pnh_.getParam("init_submap_frame", init_submap_frame_);
-        pnh_.getParam("traversability_topic", travers_topic_);
-        pnh_.getParam("frontiers_topic", frontiers_topic_);
-        pnh_.getParam("travers_expanded_topic", travers_expanded_topic_);
-        pnh_.getParam("map_update_frequency", map_update_frequency_);
-        pnh_.getParam("path_topic", path_topic_);
-        pnh_.getParam("resolution", resolution_);
-
-
-        pnh_.getParam("vis_radius", vis_radius_);
-
-        std::cout << "pcl_topic: " << pcl_topic_ << std::endl;
-        std::cout << "out_pcl_topic: " << out_pcl_topic_ << std::endl;
-        std::cout << "map_frame: " << map_frame_ << std::endl;
-        std::cout << "init_submap_frame: " << init_submap_frame_ << std::endl;
-        std::cout << "traversability topic: " << travers_topic_ << std::endl;
-        std::cout << "Frontiers topic: " << frontiers_topic_ << std::endl;
-        std::cout << "Frontiers expanded topic: " << travers_expanded_topic_ << std::endl;
-        std::cout << "Update frequency: " << map_update_frequency_ << std::endl;
-        std::cout << "path_topic " << path_topic_ << std::endl;
-
-
-        std::cout << "vis_radius: " << vis_radius_ << std::endl;
-
-
-
-        vis_radius_cells_ = int(vis_radius_ / resolution_);
-
-
-        std::cout << "vis_radius_cells: " << vis_radius_cells_ << std::endl;
-
+        conf = subt_params::load(pnh_);
         std::cout << "Parameters read" << std::endl;
-
         return true;
     }
 
     bool initializeInterface()
     {
-        sub_ = nodeHandle_.subscribe(pcl_topic_, 1, &ElevationMapperRos::cloud_cb, this);
+        sub_ = nodeHandle_.subscribe(conf.pcl_topic_, 1, &ElevationMapperRos::cloud_cb, this);
         // Create a ROS publisher for the output point cloud
-        pub_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(out_pcl_topic_, 1);
-        pub_trav_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(travers_topic_, 1);
-        pub_pcl_gl_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(transformed_pcl_topic_, 1);
-        pub_frontier_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(frontiers_topic_, 1);
-        pub_travers_expanded_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(travers_expanded_topic_, 1);
-        pub_path_ = nodeHandle_.advertise<nav_msgs::Path>(path_topic_, 1);
+        pub_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(conf.out_pcl_topic_, 1);
+        pub_trav_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(conf.travers_topic_, 1);
+        pub_pcl_gl_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(conf.transformed_pcl_topic_, 1);
+        pub_frontier_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(conf.frontiers_topic_, 1);
+        pub_travers_expanded_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(conf.travers_expanded_topic_, 1);
+        pub_travers_expanded_plan_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(conf.travers_expanded_plan_topic_, 1);
+        pub_path_ = nodeHandle_.advertise<nav_msgs::Path>(conf.path_topic_, 1);
+        pub_clearity_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(conf.clearity_topic_, 1);
 
-        service = nodeHandle_.advertiseService("detect_frontiers", &ElevationMapperRos::frontrier_cb, this);
+        service = nodeHandle_.advertiseService("explore_once", &ElevationMapperRos::explore_once_cb, this);
         std::cout << "Interface initialized" << std::endl;
+        return true;
+    }
+
+    void cloud_cb(const sensor_msgs::PointCloud2ConstPtr &pointCloudMsg)
+    {
+        if (mapper_->map_used_){
+            return;
+            std::cout << "Skipping update as the map is being used" << std::endl;
+        }
+        mapper_->updateRobotPosition(getRobotPosition2D());
+
+        if (ros::Time::now() < last_update) // for going back in time - rosbag file
+            last_update = ros::Time::now();
+        if ((ros::Time::now() - last_update).toNSec() < 1 / float(conf.map_update_frequency_) * 1000000000)
+            return;
+        last_update = ros::Time::now();
+
+        // converting msg to pcl
+        pcl::PCLPointCloud2 pcl_pc;
+        pcl_conversions::toPCL(*pointCloudMsg, pcl_pc);
+        PointCloudType::Ptr pointCloud(new PointCloudType);
+        pcl::fromPCLPointCloud2(pcl_pc, *pointCloud);
+
+        // transforming pointcloud to the world frame
+        PointCloudType::Ptr pointCloudTransformed(new PointCloudType);
+        if (!transformPointCloud(pointCloud, pointCloudTransformed))
+        {
+            ROS_ERROR_THROTTLE(10, "Point cloud could not be processed (Throttled 10s)");
+            return;
+        }
+
+        // publish pointcloud in global coordinates
+        publish_pcl(pointCloudTransformed, pub_pcl_gl_);
+
+        // inserting pointcloud to the elevation map
+        uint32_t cur_time = (pointCloudMsg->header.stamp.toNSec() / 1000000 - initTimeMs); // TODO: shift instead of division
+        mapper_->insert_cloud(pointCloudTransformed, cur_time);
+
+        // publish elevation map and traversability
+        publish_elevation();
+        publish_traversability(mapper_->traversability_, pub_trav_);
+    }
+
+    bool explore_once_cb(std_srvs::Empty::Request &request, std_srvs::Empty::Response &response)
+    {
+        mapper_->updateRobotPosition(getRobotPosition2D());
+        mapper_->map_used_ = true;
+
+        mapper_->detectFrontiers();
+        publish_traversability(mapper_->traversability_expanded_, pub_travers_expanded_);
+
+        mapper_->detectInterestPoints();
+        publish_interest_points();
+
+        mapper_->planToInterestPoint();
+        publish_traversability(mapper_->traversability_expanded_, pub_travers_expanded_plan_);
+        // send the path
+        publish_path();
+        publish_clearity();
+
+        mapper_->map_used_ = false;
         return true;
     }
 
@@ -161,7 +175,7 @@ private:
     {
         pairs answer(-1, -1);
         float coord3D[3];
-        getRobotPosition3D(map_frame_, init_submap_frame_, coord3D);
+        getRobotPosition3D(conf.map_frame_, conf.init_submap_frame_, coord3D);
         answer = pairf(coord3D[0], coord3D[1]);
         return answer;
     }
@@ -201,238 +215,11 @@ private:
 
     void getRobotPosition3D(float *output, float duration = 5.0)
     {
-        getRobotPosition3D(map_frame_, init_submap_frame_, output, duration);
+        getRobotPosition3D(conf.map_frame_, conf.init_submap_frame_, output, duration);
     }
-
-    void cloud_cb(const sensor_msgs::PointCloud2ConstPtr &pointCloudMsg)
-    {
-
-        // std::cout << "ROS: cloud callback" << std::endl;
-        // Create a container for the data.
-        // Container for original & filtered data
-        mapper_->updateRobotPosition(getRobotPosition2D());
-        if (ros::Time::now() < last_update) // for going back in time - rosbag file
-            last_update = ros::Time::now();
-        if ((ros::Time::now() - last_update).toNSec() < 1 / float(map_update_frequency_) * 1000000000)
-            return;
-        last_update = ros::Time::now();
-
-        pcl::PCLPointCloud2 pcl_pc;
-        pcl_conversions::toPCL(*pointCloudMsg, pcl_pc);
-
-        PointCloudType::Ptr pointCloud(new PointCloudType);
-        pcl::fromPCLPointCloud2(pcl_pc, *pointCloud);
-
-        PointCloudType::Ptr pointCloudTransformed(new PointCloudType);
-
-        if (!transformPointCloud(pointCloud, pointCloudTransformed))
-        {
-            ROS_ERROR_THROTTLE(10, "Point cloud could not be processed (Throttled 10s)");
-            return;
-        }
-        
-
-        sensor_msgs::PointCloud2 output;
-        pcl::toPCLPointCloud2(*pointCloudTransformed, pcl_pc);
-        pcl_conversions::fromPCL(pcl_pc, output);
-
-        // // Pub_lish the data
-
-        pub_pcl_gl_.publish(output);
-
-
-        uint32_t cur_time = (pointCloudMsg->header.stamp.toNSec() / 1000000 - initTimeMs); // TODO: shift instead of division
-
-    //   std::cout << "ROS: calling inserter" << std::endl;
-        mapper_->insert_cloud(pointCloudTransformed, cur_time);
-
-        
-
-        PointCloudType::Ptr pointCloudGrid(new PointCloudType);
-
-        pointCloudGrid->header.frame_id = map_frame_;
-        pointCloudGrid->header = pointCloudTransformed->header;
-        
-    //   std::cout << "ROS: calling inserter" << std::endl;
-        auto robot_position = mapper_->positionToIndex( getRobotPosition2D());
-        int Rx = robot_position.first;
-        int Ry = robot_position.second;
-
-        for (int i = Rx - vis_radius_cells_; i <= Rx + vis_radius_cells_; i++)
-        {
-            for (int j = Ry - vis_radius_cells_; j <= Ry + vis_radius_cells_; j++)
-            {
-                if (!mapper_->isIndexValid(i, j))
-                {
-                    continue;
-                }
-                if (!(mapper_->explored_)(i, j))
-                {
-                    continue;
-                }
-
-                pairf xy_coordinate = mapper_->indexToPosition(pairs(i, j));
-                float coordinateX = xy_coordinate.first;
-                float coordinateY = xy_coordinate.second;
-                pcl::PointXYZI p(1.0);
-                p.x = coordinateX;
-                p.y = coordinateY;
-                p.z = mapper_->elevation_.coeff(i, j);
-                pointCloudGrid->insert(pointCloudGrid->end(), p);
-            }
-        }
-
-        pcl::toPCLPointCloud2(*pointCloudGrid, pcl_pc);
-        pcl_conversions::fromPCL(pcl_pc, output);
-
-        // Publish the data
-        pub_.publish(output);
-
-        PointCloudType::Ptr pcl_trav(new PointCloudType);
-        pcl_trav->header.frame_id = map_frame_;
-        pcl_trav->header = pointCloudTransformed->header;
-
-        for (int i = Rx - vis_radius_cells_; i <= Rx + vis_radius_cells_; i++)
-        {
-            for (int j = Ry - vis_radius_cells_; j <= Ry + vis_radius_cells_; j++)
-            {
-                if (!mapper_->isIndexValid(i, j))
-                {
-                    continue;
-                }
-                if (!(mapper_->explored_)(i, j) || (mapper_->traversability_(i, j) == -1.0))
-                {
-                    continue;
-                }
-                pairf xy_coordinate = mapper_->indexToPosition(pairs(i, j));
-                float coordinateX = xy_coordinate.first;
-                float coordinateY = xy_coordinate.second;
-                pcl::PointXYZI p(mapper_->traversability_(i, j) > mapper_->slope_th_);
-                p.x = coordinateX;
-                p.y = coordinateY;
-                p.z = 0;
-                pcl_trav->insert(pcl_trav->end(), p);
-            }
-        }
-
-        pcl::toPCLPointCloud2(*pcl_trav, pcl_pc);
-        pcl_conversions::fromPCL(pcl_pc, output);
-
-        // Publish the data
-        pub_trav_.publish(output);
-    }
-
-    bool frontrier_cb(std_srvs::Empty::Request &request, std_srvs::Empty::Response &response)
-  {
-    mapper_->map_used_ = true;
-    // pairf robotPosition = getRobotPosition2D();
-    mapper_->updateRobotPosition(getRobotPosition2D());
-
-    mapper_->detect_frontiers();
-
-    sensor_msgs::PointCloud2 output;
-    PointCloudType::Ptr pointCloudFrontier(new PointCloudType);
-
-    pointCloudFrontier->header.frame_id = map_frame_;
-    pointCloudFrontier->header.stamp = ros::Time::now().toNSec() / 1000;
-
-    int i = 0;
-    for (auto &p : mapper_->current_interest_points_)
-    {
-      i++;
-      // for (auto& p: f){
-      pairf xy =  mapper_->indexToPosition(p);
-      pcl::PointXYZI pt(float(i) / float( mapper_->current_interest_points_.size()));
-      pt.x = xy.first;
-      pt.y = xy.second;
-      pt.z = 0;
-      pointCloudFrontier->insert(pointCloudFrontier->end(), pt);
-      // }
-    }
-
-    pcl::PCLPointCloud2 pcl_pc;
-    pcl::toPCLPointCloud2(*pointCloudFrontier, pcl_pc);
-    pcl_conversions::fromPCL(pcl_pc, output);
-    pub_frontier_.publish(output);
-
-    // publish expanded frontier
-
-    PointCloudType::Ptr pointCloudTravExp(new PointCloudType);
-    pointCloudTravExp->header.frame_id = map_frame_;
-    pointCloudTravExp->header = pointCloudFrontier->header;
-
-    for (int i = mapper_->robotIndex.first - vis_radius_cells_; i <= mapper_->robotIndex.first + vis_radius_cells_; i++)
-    {
-      for (int j = mapper_->robotIndex.second - vis_radius_cells_; j <= mapper_->robotIndex.second + vis_radius_cells_; j++)
-      {
-        if (!mapper_->isIndexValid(i, j))
-        {
-          continue;
-        }
-        if (!(mapper_->explored_)(i, j) || (mapper_->traversability_expanded_(i, j) == -1.0))
-        {
-          continue;
-        }
-        pairf xy_coordinate = mapper_->indexToPosition(pairs(i, j));
-        float coordinateX = xy_coordinate.first;
-        float coordinateY = xy_coordinate.second;
-        pcl::PointXYZI p(mapper_->traversability_expanded_(i, j) > mapper_->slope_th_);
-        p.x = coordinateX;
-        p.y = coordinateY;
-        p.z = 0;
-        pointCloudTravExp->insert(pointCloudTravExp->end(), p);
-      }
-    }
-
-    pcl::toPCLPointCloud2(*pointCloudTravExp, pcl_pc);
-    pcl_conversions::fromPCL(pcl_pc, output);
-
-    // Publish the data
-    pub_travers_expanded_.publish(output);
-
-    if (mapper_->current_path_.size() > 0)
-    {
-      nav_msgs::Path path;
-      path.header = output.header;
-
-      std::vector<geometry_msgs::PoseStamped> poses;
-      int seq = 0;
-      for (auto &xy_ind : mapper_->current_path_)
-      {
-        seq++;
-        pairf xy_coordinate = mapper_->indexToPosition(xy_ind);
-        geometry_msgs::PoseStamped *pose = new geometry_msgs::PoseStamped();
-        pose->header = output.header;
-        pose->header.seq = seq;
-        geometry_msgs::Pose posee;
-        geometry_msgs::Quaternion orientation;
-        orientation.w = 0;
-        orientation.x = 0;
-        orientation.y = 0;
-        orientation.z = 0;
-        posee.orientation = orientation;
-        geometry_msgs::Point point;
-        point.x = xy_coordinate.first;
-        point.y = xy_coordinate.second;
-        point.z = 0;
-        posee.position = point;
-        pose->pose = posee;
-        poses.push_back(*pose);
-      }
-      path.poses = poses;
-
-      // // Publish the data
-      pub_path_.publish(path);
-    }
-
-    mapper_->map_used_ = false;
-    return true;
-  }
 
     bool transformPointCloud(const PointCloudType::ConstPtr pointCloud, PointCloudType::Ptr &pointCloudTransformed)
     {
-
-        // ros::Time timeStamp = ros::Time::now();
         ros::Time timeStamp;
         timeStamp.fromNSec(1000 * pointCloud->header.stamp);
 
@@ -441,8 +228,7 @@ private:
         geometry_msgs::TransformStamped transformTf;
         try
         {
-            // transformListener_->waitForTransform(map_frame_, inputFrameId, timeStamp, ros::Duration(0.2), ros::Duration(0.001));
-            transformTf = tf_buffer_->lookupTransform(map_frame_, inputFrameId, timeStamp, ros::Duration(5.0));
+            transformTf = tf_buffer_->lookupTransform(conf.map_frame_, inputFrameId, timeStamp, ros::Duration(5.0));
         }
         catch (tf::TransformException &ex)
         {
@@ -453,14 +239,186 @@ private:
         Eigen::Affine3d transform;
         transform = tf2::transformToEigen(transformTf);
         pcl::transformPointCloud(*pointCloud, *pointCloudTransformed, transform.cast<float>());
-        pointCloudTransformed->header.frame_id = map_frame_;
+        pointCloudTransformed->header.frame_id = conf.map_frame_;
 
         // ROS_DEBUG_THROTTLE(5, "Point cloud transformed to frame %s for time stamp %f.", targetFrame.c_str(),
         //                    pointCloudTransformed->header.stamp / 1000.0);
         return true;
     }
 
+    bool publish_elevation()
+    {
+        std::vector<std::vector<float>> points;
 
+        for (int i = mapper_->robotIndex.first - conf.vis_radius_cells_; i <= mapper_->robotIndex.first + conf.vis_radius_cells_; i++)
+        {
+            for (int j = mapper_->robotIndex.second - conf.vis_radius_cells_; j <= mapper_->robotIndex.second + conf.vis_radius_cells_; j++)
+            {
+                if (!mapper_->isIndexValid(i, j))
+                {
+                    continue;
+                }
+                if (!(mapper_->explored_(i, j)))
+                {
+                    continue;
+                }
+                pairf xy_coordinate = mapper_->indexToPosition(pairs(i, j));
+                float coordinateX = xy_coordinate.first;
+                float coordinateY = xy_coordinate.second;
+                float elev = mapper_->elevation_(i, j);
+                points.push_back(std::vector<float>({coordinateX, coordinateY, 0, elev}));
+            }
+        }
+
+        publish_pcl(points, pub_);
+        return true;
+    }
+
+    bool publish_traversability(Eigen::MatrixXf &trav, ros::Publisher pub)
+    {
+        std::vector<std::vector<float>> points;
+
+        for (int i = mapper_->robotIndex.first - conf.vis_radius_cells_; i <= mapper_->robotIndex.first + conf.vis_radius_cells_; i++)
+        {
+            for (int j = mapper_->robotIndex.second - conf.vis_radius_cells_; j <= mapper_->robotIndex.second + conf.vis_radius_cells_; j++)
+            {
+                if (!mapper_->isIndexValid(i, j))
+                {
+                    continue;
+                }
+                if (!(mapper_->explored_)(i, j) || (trav(i, j) == -1.0))
+                {
+                    continue;
+                }
+                pairf xy_coordinate = mapper_->indexToPosition(pairs(i, j));
+                float coordinateX = xy_coordinate.first;
+                float coordinateY = xy_coordinate.second;
+                float travers = float(trav(i, j) > mapper_->conf.slope_th_);
+                points.push_back(std::vector<float>({coordinateX, coordinateY, 0, travers}));
+            }
+        }
+
+        publish_pcl(points, pub);
+        return true;
+    }
+
+    bool publish_clearity()
+    {
+        std::vector<std::vector<float>> points;
+
+        for (int i = mapper_->robotIndex.first - conf.vis_radius_cells_; i <= mapper_->robotIndex.first + conf.vis_radius_cells_; i++)
+        {
+            for (int j = mapper_->robotIndex.second - conf.vis_radius_cells_; j <= mapper_->robotIndex.second + conf.vis_radius_cells_; j++)
+            {
+                if (!mapper_->isIndexValid(i, j))
+                {
+                    continue;
+                }
+                if (!(mapper_->explored_)(i, j) || std::fabs(mapper_->clearity_(i, j)) > 40)
+                {
+                    continue;
+                }
+                pairf xy_coordinate = mapper_->indexToPosition(pairs(i, j));
+                float coordinateX = xy_coordinate.first;
+                float coordinateY = xy_coordinate.second;
+                float clearity = mapper_->clearity_(i, j);
+                points.push_back(std::vector<float>({coordinateX, coordinateY, 0, clearity}));
+            }
+        }
+
+        publish_pcl(points, pub_clearity_);
+        return true;
+    }
+
+    bool publish_interest_points()
+    {
+        std::vector<std::vector<float>> points;
+
+        int i = 0;
+        for (auto &p : mapper_->current_interest_points_)
+        {
+            i++;
+            // for (auto& p: f){
+            pairf xy = mapper_->indexToPosition(p);
+            float intensity = (float(i) / float(mapper_->current_interest_points_.size()));
+            points.push_back(std::vector<float>({xy.first, xy.second, 0, intensity}));
+        }
+
+        publish_pcl(points, pub_frontier_);
+        return true;
+    }
+
+    bool publish_pcl(std::vector<std::vector<float>> points, ros::Publisher pub)
+    {
+        PointCloudType::Ptr pointCloud(new PointCloudType);
+        pointCloud->header.frame_id = conf.map_frame_;
+        pointCloud->header.stamp = ros::Time::now().toNSec() / 1000;
+
+        for (auto &pt : points)
+        {
+            pcl::PointXYZI p(pt[3]);
+            p.x = pt[0];
+            p.y = pt[1];
+            p.z = pt[2];
+            pointCloud->insert(pointCloud->end(), p);
+        }
+
+        publish_pcl(pointCloud, pub);
+        return true;
+    }
+
+    bool publish_pcl(PointCloudType::Ptr pointCloud, ros::Publisher pub)
+    {
+
+        pcl::PCLPointCloud2 pcl_pc;
+        sensor_msgs::PointCloud2 output;
+        pcl::toPCLPointCloud2(*pointCloud, pcl_pc);
+        pcl_conversions::fromPCL(pcl_pc, output);
+
+        // Publish the data
+        pub.publish(output);
+        return true;
+    }
+
+    bool publish_path()
+    {
+        if (mapper_->current_path_.size() > 0)
+        {
+            nav_msgs::Path path;
+            path.header.frame_id = conf.map_frame_;
+            path.header.stamp = ros::Time::now();
+
+            std::vector<geometry_msgs::PoseStamped> poses;
+            int seq = 0;
+            for (auto &xy_ind : mapper_->current_path_)
+            {
+                seq++;
+                pairf xy_coordinate = mapper_->indexToPosition(xy_ind);
+                geometry_msgs::PoseStamped *pose = new geometry_msgs::PoseStamped();
+                pose->header = path.header;
+                pose->header.seq = seq;
+                geometry_msgs::Pose posee;
+                geometry_msgs::Quaternion orientation;
+                orientation.w = 0;
+                orientation.x = 0;
+                orientation.y = 0;
+                orientation.z = 0;
+                posee.orientation = orientation;
+                geometry_msgs::Point point;
+                point.x = xy_coordinate.first;
+                point.y = xy_coordinate.second;
+                point.z = 0;
+                posee.position = point;
+                pose->pose = posee;
+                poses.push_back(*pose);
+            }
+            path.poses = poses;
+
+            // // Publish the data
+            pub_path_.publish(path);
+        }
+        return true;
+    }
 };
 
 int main(int argc, char **argv)

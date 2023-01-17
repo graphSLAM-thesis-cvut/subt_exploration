@@ -32,7 +32,7 @@
 
 using pairs = std::pair<int, int>;
 
-bool isindexValid(int i, int j, const Eigen::MatrixXi* mat);
+bool isindexValid(int i, int j, const Eigen::MatrixXi *mat);
 // An enum of supported optimal planners, alphabetical order
 enum optimalPlanner
 {
@@ -56,11 +56,8 @@ enum planningObjective
     OBJECTIVE_WEIGHTEDCOMBO
 };
 
+std::vector<std::pair<int, int>> plan(std::pair<int, int> startCoord, std::pair<int, int> goalCoord,
+                                      double runTime, optimalPlanner plannerType, planningObjective objectiveType,
+                                      Eigen::MatrixXf &traversability, Eigen::MatrixXi &explored, float slope_th, Eigen::MatrixXf &clearity, int upsampling_distance = 2);
 
-
-std::vector<std::pair<int, int>> plan(std::pair<int, int> startCoord, std::pair<int, int> goalCoord, 
-            double runTime, optimalPlanner plannerType, planningObjective objectiveType, 
-            Eigen::MatrixXf& traversability, Eigen::MatrixXi& explored, float slope_th, int upsampling_distance = 2);
-
-
-void add_vertex_upsample(std::vector<std::pair<int, int>>& result, std::pair<int, int> end, int step);
+void add_vertex_upsample(std::vector<std::pair<int, int>> &result, std::pair<int, int> end, int step);

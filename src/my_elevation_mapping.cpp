@@ -28,6 +28,7 @@
 #include "planner.hpp"
 #include <std_srvs/Empty.h>
 #include "nav_msgs/Path.h"
+#include "subt_params.h"
 // #include <std_srvs/SetBoolResponse.h>
 // #include <utility>
 
@@ -51,13 +52,12 @@ using PointCloudType = pcl::PointCloud<pcl::PointXYZI>;
 class ElevationMapper
 {
 public:
-  ElevationMapper(ros::NodeHandle nodeHandle, ros::NodeHandle privateNodeHandle, float startPosition[3]): nodeHandle_(nodeHandle), pnh_(privateNodeHandle)
+  ElevationMapper(ros::NodeHandle nodeHandle, ros::NodeHandle privateNodeHandle, float startPosition[3], subt_params::Params conf) : nodeHandle_(nodeHandle), pnh_(privateNodeHandle)
   {
-    readPearameters();
-    // tf_buffer_ = new tf2_ros::Buffer();
-    // transformListener_ = new tf2_ros::TransformListener(*tf_buffer_);
+    this->conf = conf;
+    initMatricies();
     initTimeMs = ros::Time::now().toNSec() / 1000000;
-    if (init_submap_)
+    if (conf.init_submap_)
     {
       bool inited = init_submap(startPosition);
       std::cout << "Submap initialized successfully: " << inited << std::endl;
@@ -69,32 +69,18 @@ public:
   }
 
   // private:
+
+  subt_params::Params conf;
   ros::NodeHandle nodeHandle_;
   ros::NodeHandle pnh_;
-  float origin1_ = 0;
-  float origin2_ = 0;
 
   pairs robotIndex = pairs(-1, -1);
 
-  int size1_ = 20;
-  int size2_ = 20;
-  float resolution_ = 0.1;
-  int n_cells1_ = -1;
-  int n_cells2_ = -1;
   uint32_t initTimeMs;
-
   ros::Time last_update;
-
-  float vis_radius_ = 6.0;
-  int vis_radius_cells_ = 60;
-
-  bool init_submap_ = false;
-  float init_submap_height_offset_ = 0.0;
-  float init_submap_radius_ = 0.0;
 
   bool map_used_ = false;
 
-  float slope_th_ = 0.1;
 
   Eigen::MatrixXf elevation_;
   Eigen::MatrixXi elevation_time_estimated_; // To get the highest point from the cell. TODO: maybe substitude with kd-tree ?
@@ -102,27 +88,15 @@ public:
   Eigen::MatrixXi explored_;
   Eigen::MatrixXf traversability_;
   Eigen::MatrixXf traversability_expanded_;
+  Eigen::MatrixXf clearity_;
 
   std::vector<pairf> interest_points_;
   std::vector<pairf> explored_interest_points_;
 
-  float robot_size_ = resolution_;
-  int robot_size_cells_;
-
-  float max_frontier_length_ = 3.0;
-  int max_frontier_lenght_cells_;
-
-  float min_frontier_length_ = 1.0;
-  int min_frontier_size_;
-
-  float explored_point_radius_ = 0.5;
-  int explored_point_radius_cells_;
-
-  int explored_point_radius_ency_;
-
-
   std::vector<pairs> current_path_;
   std::vector<pairs> current_interest_points_;
+  std::vector<std::vector<pairs>> frontiers_;
+  pairs planning_point_;
 
   // ros::ServiceServer service;
 
@@ -131,64 +105,21 @@ public:
 
   // methods
 
-  bool readPearameters()
+  bool initMatricies()
   {
-    pnh_.getParam("origin1", origin1_);
-    pnh_.getParam("origin2", origin2_);
-    pnh_.getParam("size1", size1_);
-    pnh_.getParam("size2", size2_);
-    pnh_.getParam("resolution", resolution_);
-    pnh_.getParam("vis_radius", vis_radius_);
-    pnh_.getParam("init_submap", init_submap_);
-    pnh_.getParam("init_submap_radius", init_submap_radius_);
-    pnh_.getParam("init_submap_height_offset", init_submap_height_offset_);
-    pnh_.getParam("slope_th", slope_th_);
-    pnh_.getParam("robot_size", robot_size_);
-    pnh_.getParam("max_frontier_length", max_frontier_length_);
-    pnh_.getParam("explored_point_radius", explored_point_radius_);
-
-    std::cout << "origin1: " << origin1_ << std::endl;
-    std::cout << "origin2: " << origin2_ << std::endl;
-    std::cout << "size1: " << size1_ << std::endl;
-    std::cout << "size2: " << size2_ << std::endl;
-    std::cout << "resolution: " << resolution_ << std::endl;
-    std::cout << "vis_radius: " << vis_radius_ << std::endl;
-    std::cout << "init_submap: " << init_submap_ << std::endl;
-    std::cout << "init_submap_radius: " << init_submap_radius_ << std::endl;
-    std::cout << "init_submap_height_offset: " << init_submap_height_offset_ << std::endl;
-    std::cout << "Slope threshhold: " << slope_th_ << std::endl;
-    std::cout << "Robot size: " << robot_size_ << std::endl;
-    std::cout << "Max frontier lenth: " << max_frontier_length_ << std::endl;
-    std::cout << "Min frontier lenth: " << min_frontier_length_ << std::endl;
-    std::cout << "explored_point_radius " << explored_point_radius_ << std::endl;
-
-    n_cells1_ = int(size1_ / resolution_);
-    n_cells2_ = int(size2_ / resolution_);
-    vis_radius_cells_ = int(vis_radius_ / resolution_);
-    robot_size_cells_ = int(robot_size_ / resolution_);
-    max_frontier_lenght_cells_ = int(max_frontier_length_ / resolution_);
-    min_frontier_size_ = int(min_frontier_length_ / resolution_);
-    explored_point_radius_cells_ = int(explored_point_radius_ / resolution_);
 
     std::cout << "INITIALIZING MATRICIES" << std::endl;
-    elevation_.resize(n_cells1_, n_cells2_);
-    explored_.resize(n_cells1_, n_cells2_);
-    elevation_time_estimated_.resize(n_cells1_, n_cells2_);
-    current_measurement_.resize(n_cells1_, n_cells2_);
-    traversability_.resize(n_cells1_, n_cells2_);
-    traversability_expanded_.resize(n_cells1_, n_cells2_);
+    elevation_.resize(conf.n_cells1_, conf.n_cells2_);
+    explored_.resize(conf.n_cells1_, conf.n_cells2_);
+    elevation_time_estimated_.resize(conf.n_cells1_, conf.n_cells2_);
+    current_measurement_.resize(conf.n_cells1_, conf.n_cells2_);
+    traversability_.resize(conf.n_cells1_, conf.n_cells2_);
+    traversability_expanded_.resize(conf.n_cells1_, conf.n_cells2_);
+    clearity_.resize(conf.n_cells1_, conf.n_cells2_);
 
-    std::cout << "n_cells1: " << n_cells1_ << std::endl;
-    std::cout << "n_cells2: " << n_cells2_ << std::endl;
-    std::cout << "vis_radius_cells: " << vis_radius_cells_ << std::endl;
-    std::cout << "robot_size_cells_: " << robot_size_cells_ << std::endl;
-    std::cout << "max_frontier_lenght_cells_: " << max_frontier_lenght_cells_ << std::endl;
-    std::cout << "min_frontier_size_: " << min_frontier_size_ << std::endl;
-    std::cout << "explored_point_radius_cells_: " << explored_point_radius_cells_ << std::endl;
-
-    for (size_t i = 0; i < n_cells1_; i++)
+    for (size_t i = 0; i < conf.n_cells1_; i++)
     {
-      for (size_t j = 0; j < n_cells2_; j++)
+      for (size_t j = 0; j < conf.n_cells2_; j++)
       {
         explored_(i, j) = 0;
       }
@@ -199,7 +130,8 @@ public:
     return true;
   }
 
-  void insert_cloud(PointCloudType::Ptr pointCloudTransformed, uint32_t cur_time){
+  void insert_cloud(PointCloudType::Ptr pointCloudTransformed, uint32_t cur_time)
+  {
 
     // aggregate measurements: maximum height for each updated cell
     std::set<pairs> measured;
@@ -210,6 +142,7 @@ public:
       auto &point = pointCloudTransformed->points[i];
 
       // get point index
+
       pairs xy_index = positionToIndex(pairf(point.x, point.y));
       int indexX = xy_index.first;
       int indexY = xy_index.second;
@@ -217,7 +150,9 @@ public:
       // filter only valid indicies
       if (!isIndexValid(indexX, indexY))
       {
-        ROS_ERROR_THROTTLE(10, "X, Y index out of range");
+        ROS_ERROR_THROTTLE(10, "X, Y index out of range (Trottle 10 s)");
+        // std::cout << indexX << " " << indexY << std::endl;
+        // std::cout << point.x << " " << point.y << std::endl;
         continue;
       }
 
@@ -239,7 +174,7 @@ public:
     // std::cout << "aggregating" << std::endl;
     for (auto &pair : measured)
     {
-      
+
       // std::cout << "aggregating loop" << std::endl;
       int i = pair.first;
       int j = pair.second;
@@ -259,9 +194,69 @@ public:
     }
   }
 
+  bool detectFrontiers()
+  {
+    std::cout << "Finding frontiers!" << std::endl;
+    pairs robotPoint = getRobotCell();
+    pairs startPoint = get_nearest_traversable_cell(robotPoint);
+    planning_point_ = startPoint;
+
+    std::cout << "Robot coordinates: " << startPoint.first << " " << startPoint.second << " " << explored_(startPoint.first, startPoint.first)
+              << " " << traversability_expanded_(startPoint.first, startPoint.first) << std::endl;
+    if (startPoint.first < 0)
+    {
+      ROS_ERROR("Could find a traversable cell around robot");
+      std::cout << "Could find a traversable cell around robot" << std::endl;
+      return false;
+    }
+    std::vector<std::vector<pairs>> frontiers = wfd(traversability_, traversability_expanded_, explored_, startPoint.first, startPoint.second, conf.robot_size_cells_, conf.max_frontier_lenght_cells_, conf.min_frontier_size_, conf.slope_th_);
+    std::cout << "Found " << frontiers.size() << " frontiers!" << std::endl;
+    frontiers_ = frontiers;
+    return true;
+  }
+
+  bool detectInterestPoints()
+  {
+    std::vector<pairs> interest_points;
+    for (auto &f : frontiers_)
+    {
+      pairs interest_point = get_interest_point(f);
+      auto interest_pt_coord = indexToPosition(interest_point);
+      // TODO: make as a parameter!!!
+      if (interest_pt_coord.first < 12)
+        continue;
+
+      interest_points.push_back(interest_point);
+    }
+
+    current_interest_points_ = interest_points;
+    return true;
+  }
+
+  bool planToInterestPoint()
+  {
+
+	  expand(traversability_, traversability_expanded_, explored_, planning_point_.first, planning_point_.second, conf.robot_size_cells_, conf.slope_th_, true);
+    std::vector<pairs> path;
+    if (current_interest_points_.size() > 0)
+    {
+      pairs chosen_point = choose_interest_point(current_interest_points_);
+      if (chosen_point.first < 0)
+      {
+        std::cout << "No exploration points left!" << std::endl;
+      }
+      else
+      {
+        path = plan(planning_point_, chosen_point, 10, optimalPlanner::PLANNER_RRTSTAR, planningObjective::OBJECTIVE_WEIGHTEDCOMBO, traversability_expanded_, explored_, conf.slope_th_, clearity_);
+      }
+    } 
+    current_path_ = path;
+    return true;
+  }
+
   bool isIndexValid(int i, int j)
   {
-    return (i > 0) && (j > 0) && (i < n_cells1_) && (j < n_cells2_);
+    return (i > 0) && (j > 0) && (i < conf.n_cells1_) && (j < conf.n_cells2_);
   }
 
   bool update_traversability(int i, int j)
@@ -332,7 +327,7 @@ public:
           continue;
         if (cell_states[ij] == MAP_OPEN_LIST || cell_states[ij] == MAP_CLOSE_LIST)
           continue;
-        if (explored_(i, j) && traversability_(i, j) >= 0 && traversability_expanded_(i, j) < slope_th_ && !is_frontier_point(ij))
+        if (explored_(i, j) && traversability_(i, j) >= 0 && traversability_expanded_(i, j) < conf.slope_th_ && !is_frontier_point(ij))
           return pairs(i, j);
         q_m.push(ij);
         cell_states[ij] = MAP_OPEN_LIST;
@@ -345,7 +340,7 @@ public:
   bool is_frontier_point(pairs point)
   {
     // The point under consideration must be known
-    if (!is_explored(point.first, point.second, traversability_expanded_, explored_) || traversability_expanded_(point.first, point.second) > slope_th_)
+    if (!is_explored(point.first, point.second, traversability_expanded_, explored_) || traversability_expanded_(point.first, point.second) > conf.slope_th_)
     {
       return false;
     }
@@ -360,7 +355,7 @@ public:
       if (is_index_valid(row, col, traversability_expanded_))
       {
         // None of the neighbours should be occupied space.
-        if (traversability_expanded_(row, col) > slope_th_ && is_explored(row, col, traversability_expanded_, explored_))
+        if (traversability_expanded_(row, col) > conf.slope_th_ && is_explored(row, col, traversability_expanded_, explored_))
         {
           return false;
         }
@@ -381,13 +376,13 @@ public:
   {
     float x_coord = coords[0];
     float y_coord = coords[1];
-    float z_coord = coords[2];
+    float z_coord = coords[2] - conf.init_submap_height_offset_;
     pairs xy_ind = positionToIndex(pairf(x_coord, y_coord));
     int x_ind = xy_ind.first;
     int y_ind = xy_ind.second;
     std::cout << x_coord << " " << y_coord << " " << z_coord << std::endl;
 
-    int radius_inds = int(init_submap_radius_ / resolution_);
+    int radius_inds = int(conf.init_submap_radius_ / conf.resolution_);
     if (!radius_inds)
     {
       std::cout << "Init submap radius is 0" << std::endl;
@@ -415,63 +410,18 @@ public:
     }
     return true;
   }
- 
-  bool detect_frontiers()
-  {
-    std::cout << "Finding frontiers!" << std::endl;
-    pairs robotPoint = getRobotCell();
-    pairs startPoint = get_nearest_traversable_cell(robotPoint);
-    std::cout << "Robot coordinates: " << startPoint.first << " " << startPoint.second << std::endl;
-    if (startPoint.first < 0)
-    {
-      ROS_ERROR("Could find a traversable cell around robot");
-      std::cout << "Could find a traversable cell around robot" << std::endl;
-      return false;
-    }
-    std::vector<std::vector<pairs>> frontiers = wfd(traversability_, traversability_expanded_, explored_, startPoint.first, startPoint.second, robot_size_cells_, max_frontier_lenght_cells_, min_frontier_size_, slope_th_);
-    std::cout << "Found " << frontiers.size() << " frontiers!" << std::endl;
-
-    std::vector<pairs> interest_points;
-    for (auto &f : frontiers)
-    {
-      pairs interest_point = get_interest_point(f);
-      auto interest_pt_coord = indexToPosition(interest_point);
-      // TODO: make as a parameter!!!
-      if (interest_pt_coord.first < 12)
-        continue;
-
-      interest_points.push_back(interest_point);
-    }
-
-    current_interest_points_ = interest_points;
-
-    if (interest_points.size() > 0)
-    {
-      pairs chosen_point = choose_point(interest_points);
-      if (chosen_point.first < 0)
-      {
-        std::cout << "No exploration points left!" << std::endl;
-      }
-      else
-      {
-        current_path_ = plan(startPoint, chosen_point, 10, optimalPlanner::PLANNER_RRTSTAR, planningObjective::OBJECTIVE_WEIGHTEDCOMBO, traversability_expanded_, explored_, slope_th_);
-      }
-    }
-
-    return true;
-  }
 
   pairs positionToIndex(pairf position)
   {
-    int i = int((position.first - origin1_) / resolution_) + n_cells1_ / 2;
-    int j = int((position.second - origin2_) / resolution_) + n_cells2_ / 2;
+    int i = int((position.first - conf.origin1_) / conf.resolution_) + conf.n_cells1_ / 2;
+    int j = int((position.second - conf.origin2_) / conf.resolution_) + conf.n_cells2_ / 2;
     return pairs(i, j);
   }
 
   pairf indexToPosition(pairs position)
   {
-    float x = (position.first - n_cells1_ / 2) * resolution_ + origin1_;
-    float y = (position.second - n_cells2_ / 2) * resolution_ + origin2_;
+    float x = (position.first - conf.n_cells1_ / 2) * conf.resolution_ + conf.origin1_;
+    float y = (position.second - conf.n_cells2_ / 2) * conf.resolution_ + conf.origin2_;
     return pairf(x, y);
   }
 
@@ -501,14 +451,14 @@ public:
     return result;
   }
 
-  pairs choose_point(std::vector<pairs> points)
+  pairs choose_interest_point(std::vector<pairs> interest_points)
   {
-    for (auto &p : points)
+    for (auto &p : interest_points)
     {
       bool suits = true;
       for (auto &ex_p : explored_interest_points_)
       {
-        if (std::sqrt(std::pow(p.first - ex_p.first, 2) + std::pow(p.second - ex_p.second, 2)) < explored_point_radius_cells_)
+        if (std::sqrt(std::pow(p.first - ex_p.first, 2) + std::pow(p.second - ex_p.second, 2)) < conf.explored_point_radius_cells_)
         {
           suits = false;
           break;
@@ -523,19 +473,8 @@ public:
     return pairs(-1, -1);
   }
 
-  void updateRobotPosition(pairf position){
+  void updateRobotPosition(pairf position)
+  {
     robotIndex = positionToIndex(position);
   }
 };
-
-// int main(int argc, char **argv)
-// {
-//   ros::init(argc, argv, "my_elevation_map");
-//   ros::NodeHandle nh;
-//   ros::NodeHandle pnh("~");
-
-//   ElevationMapper mapper(nh, pnh);
-
-//   // Spin
-//   ros::spin();
-// }
