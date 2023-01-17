@@ -74,6 +74,8 @@ public:
   float origin1_ = 0;
   float origin2_ = 0;
 
+  pairs robotIndex = pairs(-1, -1);
+
   int size1_ = 20;
   int size2_ = 20;
   float resolution_ = 0.1;
@@ -141,6 +143,10 @@ public:
   ros::Publisher pub_travers_expanded_;
   ros::Publisher pub_path_;
   // ros::Subscriber sub_;
+
+
+  std::vector<pairs> current_path_;
+  std::vector<pairs> current_interest_points_;
 
   // ros::ServiceServer service;
 
@@ -248,192 +254,64 @@ public:
     return true;
   }
 
-  bool transformPointCloud(const PointCloudType::ConstPtr pointCloud, PointCloudType::Ptr &pointCloudTransformed)
-  {
+  void insert_cloud(PointCloudType::Ptr pointCloudTransformed, uint32_t cur_time){
 
-    // ros::Time timeStamp = ros::Time::now();
-    ros::Time timeStamp;
-    timeStamp.fromNSec(1000 * pointCloud->header.stamp);
-
-    const std::string inputFrameId(pointCloud->header.frame_id);
-
-    geometry_msgs::TransformStamped transformTf;
-    try
-    {
-      // transformListener_->waitForTransform(map_frame_, inputFrameId, timeStamp, ros::Duration(0.2), ros::Duration(0.001));
-      transformTf = tf_buffer_->lookupTransform(map_frame_, inputFrameId, timeStamp, ros::Duration(5.0));
-    }
-    catch (tf::TransformException &ex)
-    {
-      ROS_ERROR("%s", ex.what());
-      return false;
-    }
-
-    Eigen::Affine3d transform;
-    transform = tf2::transformToEigen(transformTf);
-    pcl::transformPointCloud(*pointCloud, *pointCloudTransformed, transform.cast<float>());
-    pointCloudTransformed->header.frame_id = map_frame_;
-
-    // ROS_DEBUG_THROTTLE(5, "Point cloud transformed to frame %s for time stamp %f.", targetFrame.c_str(),
-    //                    pointCloudTransformed->header.stamp / 1000.0);
-    return true;
-  }
-
-  void cloud_cb(const sensor_msgs::PointCloud2ConstPtr &pointCloudMsg)
-  {
-    // Create a container for the data.
-    // Container for original & filtered data
-    if (ros::Time::now() < last_update) // for going back in time - rosbag file
-      last_update = ros::Time::now();
-
-    if ((ros::Time::now() - last_update).toNSec() < 1 / float(map_update_frequency_) * 1000000000)
-      return;
-
-    last_update = ros::Time::now();
-
-    pcl::PCLPointCloud2 pcl_pc;
-    pcl_conversions::toPCL(*pointCloudMsg, pcl_pc);
-
-    PointCloudType::Ptr pointCloud(new PointCloudType);
-    pcl::fromPCLPointCloud2(pcl_pc, *pointCloud);
-    PointCloudType::Ptr pointCloudTransformed(new PointCloudType);
-
-    uint32_t cur_time = (pointCloudMsg->header.stamp.toNSec() / 1000000 - initTimeMs); // TODO: shift instead of division
-
-    if (!transformPointCloud(pointCloud, pointCloudTransformed))
-    {
-      ROS_ERROR_THROTTLE(10, "Point cloud could not be processed (Throttled 10s)");
-      return;
-    }
-    sensor_msgs::PointCloud2 output;
-    pcl::toPCLPointCloud2(*pointCloudTransformed, pcl_pc);
-    pcl_conversions::fromPCL(pcl_pc, output);
-
-    // // Pub_lish the data
-    pub_pcl_gl_.publish(output);
-
+    // aggregate measurements: maximum height for each updated cell
     std::set<pairs> measured;
+
     for (size_t i = 0; i < pointCloudTransformed->size(); i++)
     {
+      // std::cout << "inserting new measurement ";
       auto &point = pointCloudTransformed->points[i];
-      // float coordinateX = point.x - origin1_;
-      // float coordinateY = point.y - origin2_;
+
+      // get point index
       pairs xy_index = positionToIndex(pairf(point.x, point.y));
       int indexX = xy_index.first;
       int indexY = xy_index.second;
 
-      // std::cout << "iterating" << std::endl;
+      // filter only valid indicies
       if (!isIndexValid(indexX, indexY))
       {
-        // std::cout << "invalid " << indexX << " " << indexY << std::endl;
         ROS_ERROR_THROTTLE(10, "X, Y index out of range");
         continue;
       }
 
-      if (cur_time == elevation_time_estimated_(indexX, indexY))
+      // handle multiple measurements in the same lidar scan
+      if (cur_time == elevation_time_estimated_(indexX, indexY)) // not the first point in the current scan
       {
+        // std::cout << "old" << std::endl;
         current_measurement_(indexX, indexY) = std::max(point.z, current_measurement_(indexX, indexY));
       }
-      else
+      else // first point in the current scan
       {
+        // std::cout << "new" << std::endl;
         current_measurement_(indexX, indexY) = point.z;
         elevation_time_estimated_(indexX, indexY) = cur_time;
       }
-      // std::cout << "inserting" << std::endl;
       measured.insert(pairs(indexX, indexY));
     }
 
-    float avg_i = 0;
-    int count = 1;
-    float avg_j = 0;
-
+    // std::cout << "aggregating" << std::endl;
     for (auto &pair : measured)
     {
+      
+      // std::cout << "aggregating loop" << std::endl;
       int i = pair.first;
       int j = pair.second;
-      avg_i = (count - 1.0) / count * avg_i + 1.0 / count * i;
-      avg_j = (count - 1.0) / count * avg_j + 1.0 / count * j;
-      count++;
 
-      if (1 == (explored_)(i, j))
+      // updating elevation map with the aggregated measurements
+      if (1 == (explored_)(i, j)) // when explored, add new measurement
       {
         (elevation_)(i, j) = (elevation_)(i, j) * 0.9 + current_measurement_(i, j) * 0.1;
       }
-      else
+      else // else set height to the measurement
       {
         (elevation_)(i, j) = current_measurement_(i, j);
         (explored_)(i, j) = 1;
       }
-      update_traversability(i, j);
+
+      update_traversability(i, j); // update traversability of the updated cell. TODO: update traversability after all the heights are updated
     }
-
-    PointCloudType::Ptr pointCloudGrid(new PointCloudType);
-
-    pointCloudGrid->header.frame_id = map_frame_;
-    pointCloudGrid->header = pointCloudTransformed->header;
-
-    for (int i = int(avg_i) - vis_radius_cells_; i <= int(avg_i) + vis_radius_cells_; i++)
-    {
-      for (int j = int(avg_j) - vis_radius_cells_; j <= int(avg_j) + vis_radius_cells_; j++)
-      {
-        if (!isIndexValid(i, j))
-        {
-          continue;
-        }
-        if (!(explored_)(i, j))
-        {
-          continue;
-        }
-
-        pairf xy_coordinate = indexToPosition(pairs(i, j));
-        float coordinateX = xy_coordinate.first;
-        float coordinateY = xy_coordinate.second;
-        pcl::PointXYZI p(1.0);
-        p.x = coordinateX;
-        p.y = coordinateY;
-        p.z = elevation_.coeff(i, j);
-        pointCloudGrid->insert(pointCloudGrid->end(), p);
-      }
-    }
-
-    pcl::toPCLPointCloud2(*pointCloudGrid, pcl_pc);
-    pcl_conversions::fromPCL(pcl_pc, output);
-
-    // Publish the data
-    pub_.publish(output);
-
-    PointCloudType::Ptr pcl_trav(new PointCloudType);
-    pcl_trav->header.frame_id = map_frame_;
-    pcl_trav->header = pointCloudTransformed->header;
-
-    for (int i = int(avg_i) - vis_radius_cells_; i <= int(avg_i) + vis_radius_cells_; i++)
-    {
-      for (int j = int(avg_j) - vis_radius_cells_; j <= int(avg_j) + vis_radius_cells_; j++)
-      {
-        if (!isIndexValid(i, j))
-        {
-          continue;
-        }
-        if (!(explored_)(i, j) || (traversability_(i, j) == -1.0))
-        {
-          continue;
-        }
-        pairf xy_coordinate = indexToPosition(pairs(i, j));
-        float coordinateX = xy_coordinate.first;
-        float coordinateY = xy_coordinate.second;
-        pcl::PointXYZI p(traversability_(i, j) > slope_th_);
-        p.x = coordinateX;
-        p.y = coordinateY;
-        p.z = 0;
-        pcl_trav->insert(pcl_trav->end(), p);
-      }
-    }
-
-    pcl::toPCLPointCloud2(*pcl_trav, pcl_pc);
-    pcl_conversions::fromPCL(pcl_pc, output);
-
-    // Publish the data
-    pub_trav_.publish(output);
   }
 
   bool isIndexValid(int i, int j)
@@ -477,27 +355,7 @@ public:
 
   pairs getRobotCell()
   {
-    pairs answer(-1, -1);
-    geometry_msgs::TransformStamped transformTf;
-    ros::Time timeStamp;
-    timeStamp.fromSec(0.0);
-    try
-    {
-      transformTf = tf_buffer_->lookupTransform(map_frame_, init_submap_frame_, timeStamp, ros::Duration(5.0));
-    }
-    catch (tf::TransformException &ex)
-    {
-      ROS_ERROR("%s", ex.what());
-
-      std::cout << "Init submap: failed to get a transform" << std::endl;
-      return answer;
-    }
-    float x_coord = transformTf.transform.translation.x;
-    float y_coord = transformTf.transform.translation.y;
-
-    answer = positionToIndex(pairf(x_coord, y_coord));
-
-    return answer;
+    return robotIndex;
   }
 
   pairs get_nearest_traversable_cell(pairs check_cell)
@@ -766,6 +624,146 @@ public:
     map_used_ = false;
     return true;
   }
+   
+  bool detect_frontiers()
+  {
+    std::cout << "Finding frontiers!" << std::endl;
+    pairs robotPoint = getRobotCell();
+    pairs startPoint = get_nearest_traversable_cell(robotPoint);
+    std::cout << "Robot coordinates: " << startPoint.first << " " << startPoint.second << std::endl;
+    if (startPoint.first < 0)
+    {
+      ROS_ERROR("Could find a traversable cell around robot");
+      std::cout << "Could find a traversable cell around robot" << std::endl;
+      return false;
+    }
+    std::vector<std::vector<pairs>> frontiers = wfd(traversability_, traversability_expanded_, explored_, startPoint.first, startPoint.second, robot_size_cells_, max_frontier_lenght_cells_, min_frontier_size_, slope_th_);
+    std::cout << "Found " << frontiers.size() << " frontiers!" << std::endl;
+
+    std::vector<pairs> interest_points;
+    for (auto &f : frontiers)
+    {
+      pairs interest_point = get_interest_point(f);
+      auto interest_pt_coord = indexToPosition(interest_point);
+      // TODO: make as a parameter!!!
+      if (interest_pt_coord.first < 12)
+        continue;
+
+      interest_points.push_back(interest_point);
+    }
+
+    current_interest_points_ = interest_points;
+
+
+    // sensor_msgs::PointCloud2 output;
+    // PointCloudType::Ptr pointCloudFrontier(new PointCloudType);
+
+    // pointCloudFrontier->header.frame_id = map_frame_;
+    // pointCloudFrontier->header.stamp = ros::Time::now().toNSec() / 1000;
+
+    // int i = 0;
+    // for (auto &p : interest_points)
+    // {
+    //   i++;
+    //   // for (auto& p: f){
+    //   pairf xy = indexToPosition(p);
+    //   pcl::PointXYZI pt(float(i) / float(frontiers.size()));
+    //   pt.x = xy.first;
+    //   pt.y = xy.second;
+    //   pt.z = 0;
+    //   pointCloudFrontier->insert(pointCloudFrontier->end(), pt);
+    //   // }
+    // }
+
+    // pcl::PCLPointCloud2 pcl_pc;
+    // pcl::toPCLPointCloud2(*pointCloudFrontier, pcl_pc);
+    // pcl_conversions::fromPCL(pcl_pc, output);
+    // pub_frontier_.publish(output);
+
+    // // publish expanded frontier
+
+    // PointCloudType::Ptr pointCloudTravExp(new PointCloudType);
+    // pointCloudTravExp->header.frame_id = map_frame_;
+    // pointCloudTravExp->header = pointCloudFrontier->header;
+
+    // for (int i = startPoint.first - vis_radius_cells_; i <= startPoint.first + vis_radius_cells_; i++)
+    // {
+    //   for (int j = startPoint.second - vis_radius_cells_; j <= startPoint.second + vis_radius_cells_; j++)
+    //   {
+    //     if (!isIndexValid(i, j))
+    //     {
+    //       continue;
+    //     }
+    //     if (!(explored_)(i, j) || (traversability_expanded_(i, j) == -1.0))
+    //     {
+    //       continue;
+    //     }
+    //     pairf xy_coordinate = indexToPosition(pairs(i, j));
+    //     float coordinateX = xy_coordinate.first;
+    //     float coordinateY = xy_coordinate.second;
+    //     pcl::PointXYZI p(traversability_expanded_(i, j) > slope_th_);
+    //     p.x = coordinateX;
+    //     p.y = coordinateY;
+    //     p.z = 0;
+    //     pointCloudTravExp->insert(pointCloudTravExp->end(), p);
+    //   }
+    // }
+
+    // pcl::toPCLPointCloud2(*pointCloudTravExp, pcl_pc);
+    // pcl_conversions::fromPCL(pcl_pc, output);
+
+    // // Publish the data
+    // pub_travers_expanded_.publish(output);
+
+    if (interest_points.size() > 0)
+    {
+      pairs chosen_point = choose_point(interest_points);
+      if (chosen_point.first < 0)
+      {
+        std::cout << "No exploration points left!" << std::endl;
+      }
+      else
+      {
+        current_path_ = plan(startPoint, chosen_point, 10, optimalPlanner::PLANNER_RRTSTAR, planningObjective::OBJECTIVE_WEIGHTEDCOMBO, traversability_expanded_, explored_, slope_th_);
+      }
+    }
+    // if (resulting_path.size() > 0)
+    // {
+    //   nav_msgs::Path path;
+    //   path.header = output.header;
+
+    //   std::vector<geometry_msgs::PoseStamped> poses;
+    //   int seq = 0;
+    //   for (auto &xy_ind : resulting_path)
+    //   {
+    //     seq++;
+    //     pairf xy_coordinate = indexToPosition(xy_ind);
+    //     geometry_msgs::PoseStamped *pose = new geometry_msgs::PoseStamped();
+    //     pose->header = output.header;
+    //     pose->header.seq = seq;
+    //     geometry_msgs::Pose posee;
+    //     geometry_msgs::Quaternion orientation;
+    //     orientation.w = 0;
+    //     orientation.x = 0;
+    //     orientation.y = 0;
+    //     orientation.z = 0;
+    //     posee.orientation = orientation;
+    //     geometry_msgs::Point point;
+    //     point.x = xy_coordinate.first;
+    //     point.y = xy_coordinate.second;
+    //     point.z = 0;
+    //     posee.position = point;
+    //     pose->pose = posee;
+    //     poses.push_back(*pose);
+    //   }
+    //   path.poses = poses;
+
+    //   // // Publish the data
+    //   pub_path_.publish(path);
+    // }
+
+    return true;
+  }
 
   pairs positionToIndex(pairf position)
   {
@@ -834,6 +832,10 @@ public:
       }
     }
     return pairs(-1, -1);
+  }
+
+  void updateRobotPosition(pairf position){
+    robotIndex = positionToIndex(position);
   }
 };
 
