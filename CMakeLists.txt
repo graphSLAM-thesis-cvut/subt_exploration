@@ -163,7 +163,7 @@ target_link_libraries(gridmap_to_occupancy
   ${catkin_LIBRARIES}
 )
 
-add_executable(my_elevation_mapping src/my_elevation_mapping.cpp src/frontier.cpp src/planner.cpp)
+add_executable(my_elevation_mapping src/ros_interface.cpp src/my_elevation_mapping.cpp src/frontier.cpp src/planner.cpp )
 target_link_libraries(my_elevation_mapping
   ${catkin_LIBRARIES}
   ${OMPL_LIBRARIES}

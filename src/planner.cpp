@@ -63,7 +63,7 @@ ob::OptimizationObjectivePtr getBalancedObjective(const ob::SpaceInformationPtr&
 
     ob::MultiOptimizationObjective* opt = new ob::MultiOptimizationObjective(si);
     opt->addObjective(lengthObj, 10.0);
-    opt->addObjective(clearObj, 10.0);
+    opt->addObjective(clearObj, 0.0);
 
     return ob::OptimizationObjectivePtr(opt);
 }
