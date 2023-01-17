@@ -51,15 +51,15 @@ using PointCloudType = pcl::PointCloud<pcl::PointXYZI>;
 class ElevationMapper
 {
 public:
-  ElevationMapper(ros::NodeHandle nodeHandle, ros::NodeHandle privateNodeHandle) : nodeHandle_(nodeHandle), pnh_(privateNodeHandle)
+  ElevationMapper(ros::NodeHandle nodeHandle, ros::NodeHandle privateNodeHandle, float startPosition[3]): nodeHandle_(nodeHandle), pnh_(privateNodeHandle)
   {
     readPearameters();
-    tf_buffer_ = new tf2_ros::Buffer();
-    transformListener_ = new tf2_ros::TransformListener(*tf_buffer_);
+    // tf_buffer_ = new tf2_ros::Buffer();
+    // transformListener_ = new tf2_ros::TransformListener(*tf_buffer_);
     initTimeMs = ros::Time::now().toNSec() / 1000000;
     if (init_submap_)
     {
-      bool inited = init_submap();
+      bool inited = init_submap(startPosition);
       std::cout << "Submap initialized successfully: " << inited << std::endl;
     }
   }
@@ -94,17 +94,6 @@ public:
 
   bool map_used_ = false;
 
-  bool publish_traversability_ = false;
-
-  std::string out_pcl_topic_ = "elevation";
-  std::string transformed_pcl_topic_ = "pcl_glob";
-  std::string pcl_topic_ = "COSTAR_HUSKY/points";
-  std::string map_frame_ = "COSTAR_HUSKY/odom";
-  std::string init_submap_frame_ = "COSTAR_HUSKY";
-  std::string travers_topic_ = "traversability";
-  std::string frontiers_topic_ = "frontiers";
-  std::string travers_expanded_topic_ = "travers_expanded";
-  std::string path_topic_ = "rrt_path";
   float slope_th_ = 0.1;
 
   Eigen::MatrixXf elevation_;
@@ -123,8 +112,6 @@ public:
   float max_frontier_length_ = 3.0;
   int max_frontier_lenght_cells_;
 
-  int map_update_frequency_ = 50;
-
   float min_frontier_length_ = 1.0;
   int min_frontier_size_;
 
@@ -132,17 +119,6 @@ public:
   int explored_point_radius_cells_;
 
   int explored_point_radius_ency_;
-
-  // tf::TransformListener transformListener_;
-  tf2_ros::Buffer *tf_buffer_;
-  tf2_ros::TransformListener *transformListener_;
-  ros::Publisher pub_;
-  ros::Publisher pub_trav_;
-  ros::Publisher pub_pcl_gl_;
-  ros::Publisher pub_frontier_;
-  ros::Publisher pub_travers_expanded_;
-  ros::Publisher pub_path_;
-  // ros::Subscriber sub_;
 
 
   std::vector<pairs> current_path_;
@@ -157,51 +133,33 @@ public:
 
   bool readPearameters()
   {
-    pnh_.getParam("pcl_topic", pcl_topic_);
     pnh_.getParam("origin1", origin1_);
     pnh_.getParam("origin2", origin2_);
     pnh_.getParam("size1", size1_);
     pnh_.getParam("size2", size2_);
     pnh_.getParam("resolution", resolution_);
-    pnh_.getParam("out_pcl_topic", out_pcl_topic_);
-    pnh_.getParam("map_frame", map_frame_);
     pnh_.getParam("vis_radius", vis_radius_);
     pnh_.getParam("init_submap", init_submap_);
     pnh_.getParam("init_submap_radius", init_submap_radius_);
     pnh_.getParam("init_submap_height_offset", init_submap_height_offset_);
-    pnh_.getParam("init_submap_frame", init_submap_frame_);
-    pnh_.getParam("traversability_topic", travers_topic_);
     pnh_.getParam("slope_th", slope_th_);
-    pnh_.getParam("frontiers_topic", frontiers_topic_);
-    pnh_.getParam("travers_expanded_topic", travers_expanded_topic_);
     pnh_.getParam("robot_size", robot_size_);
     pnh_.getParam("max_frontier_length", max_frontier_length_);
-    pnh_.getParam("map_update_frequency", map_update_frequency_);
-    pnh_.getParam("path_topic", path_topic_);
     pnh_.getParam("explored_point_radius", explored_point_radius_);
 
-    std::cout << "pcl_topic: " << pcl_topic_ << std::endl;
     std::cout << "origin1: " << origin1_ << std::endl;
     std::cout << "origin2: " << origin2_ << std::endl;
     std::cout << "size1: " << size1_ << std::endl;
     std::cout << "size2: " << size2_ << std::endl;
     std::cout << "resolution: " << resolution_ << std::endl;
-    std::cout << "out_pcl_topic: " << out_pcl_topic_ << std::endl;
-    std::cout << "map_frame: " << map_frame_ << std::endl;
     std::cout << "vis_radius: " << vis_radius_ << std::endl;
     std::cout << "init_submap: " << init_submap_ << std::endl;
     std::cout << "init_submap_radius: " << init_submap_radius_ << std::endl;
     std::cout << "init_submap_height_offset: " << init_submap_height_offset_ << std::endl;
-    std::cout << "init_submap_frame: " << init_submap_frame_ << std::endl;
-    std::cout << "traversability topic: " << travers_topic_ << std::endl;
     std::cout << "Slope threshhold: " << slope_th_ << std::endl;
-    std::cout << "Frontiers topic: " << frontiers_topic_ << std::endl;
-    std::cout << "Frontiers expanded topic: " << travers_expanded_topic_ << std::endl;
     std::cout << "Robot size: " << robot_size_ << std::endl;
     std::cout << "Max frontier lenth: " << max_frontier_length_ << std::endl;
     std::cout << "Min frontier lenth: " << min_frontier_length_ << std::endl;
-    std::cout << "Update frequency: " << map_update_frequency_ << std::endl;
-    std::cout << "path_topic " << path_topic_ << std::endl;
     std::cout << "explored_point_radius " << explored_point_radius_ << std::endl;
 
     n_cells1_ = int(size1_ / resolution_);
@@ -237,19 +195,6 @@ public:
     }
 
     std::cout << "MATRICIES initialized" << std::endl;
-    // sub_ = nodeHandle_.subscribe(pcl_topic_, 1, &ElevationMapper::cloud_cb, this);
-
-    // Create a ROS publisher for the output point cloud
-    pub_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(out_pcl_topic_, 1);
-    pub_trav_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(travers_topic_, 1);
-    pub_pcl_gl_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(transformed_pcl_topic_, 1);
-    pub_frontier_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(frontiers_topic_, 1);
-    pub_travers_expanded_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(travers_expanded_topic_, 1);
-    pub_path_ = nodeHandle_.advertise<nav_msgs::Path>(path_topic_, 1);
-
-    // service = nodeHandle_.advertiseService("detect_frontiers", &ElevationMapper::frontrier_cb, this);
-
-    // std::cout << "Node initialized" << std::endl;
 
     return true;
   }
@@ -432,25 +377,11 @@ public:
     return false;
   }
 
-  bool init_submap()
+  bool init_submap(float coords[3])
   {
-    geometry_msgs::TransformStamped transformTf;
-    ros::Time timeStamp;
-    timeStamp.fromSec(0.0);
-    try
-    {
-      transformTf = tf_buffer_->lookupTransform(map_frame_, init_submap_frame_, timeStamp, ros::Duration(5.0));
-    }
-    catch (tf::TransformException &ex)
-    {
-      ROS_ERROR("%s", ex.what());
-
-      std::cout << "Init submap: failed to get a transform" << std::endl;
-      return false;
-    }
-    float x_coord = transformTf.transform.translation.x;
-    float y_coord = transformTf.transform.translation.y;
-    float z_coord = transformTf.transform.translation.z - init_submap_height_offset_;
+    float x_coord = coords[0];
+    float y_coord = coords[1];
+    float z_coord = coords[2];
     pairs xy_ind = positionToIndex(pairf(x_coord, y_coord));
     int x_ind = xy_ind.first;
     int y_ind = xy_ind.second;
@@ -484,147 +415,7 @@ public:
     }
     return true;
   }
-
-  bool frontrier_cb(std_srvs::Empty::Request &request, std_srvs::Empty::Response &response)
-  {
-    map_used_ = true;
-    std::cout << "Finding frontiers!" << std::endl;
-    pairs robotPoint = getRobotCell();
-    pairs startPoint = get_nearest_traversable_cell(robotPoint);
-    std::cout << "Robot coordinates: " << startPoint.first << " " << startPoint.second << std::endl;
-    if (startPoint.first < 0)
-    {
-      ROS_ERROR("Could find a traversable cell around robot");
-      std::cout << "Could find a traversable cell around robot" << std::endl;
-      return false;
-    }
-    std::vector<std::vector<pairs>> frontiers = wfd(traversability_, traversability_expanded_, explored_, startPoint.first, startPoint.second, robot_size_cells_, max_frontier_lenght_cells_, min_frontier_size_, slope_th_);
-    std::cout << "Found " << frontiers.size() << " frontiers!" << std::endl;
-
-    std::vector<pairs> interest_points;
-    for (auto &f : frontiers)
-    {
-      pairs interest_point = get_interest_point(f);
-      auto interest_pt_coord = indexToPosition(interest_point);
-      // TODO: make as a parameter!!!
-      if (interest_pt_coord.first < 12)
-        continue;
-
-      interest_points.push_back(interest_point);
-    }
-
-    sensor_msgs::PointCloud2 output;
-    PointCloudType::Ptr pointCloudFrontier(new PointCloudType);
-
-    pointCloudFrontier->header.frame_id = map_frame_;
-    pointCloudFrontier->header.stamp = ros::Time::now().toNSec() / 1000;
-
-    int i = 0;
-    for (auto &p : interest_points)
-    {
-      i++;
-      // for (auto& p: f){
-      pairf xy = indexToPosition(p);
-      pcl::PointXYZI pt(float(i) / float(frontiers.size()));
-      pt.x = xy.first;
-      pt.y = xy.second;
-      pt.z = 0;
-      pointCloudFrontier->insert(pointCloudFrontier->end(), pt);
-      // }
-    }
-
-    pcl::PCLPointCloud2 pcl_pc;
-    pcl::toPCLPointCloud2(*pointCloudFrontier, pcl_pc);
-    pcl_conversions::fromPCL(pcl_pc, output);
-    pub_frontier_.publish(output);
-
-    // publish expanded frontier
-
-    PointCloudType::Ptr pointCloudTravExp(new PointCloudType);
-    pointCloudTravExp->header.frame_id = map_frame_;
-    pointCloudTravExp->header = pointCloudFrontier->header;
-
-    for (int i = startPoint.first - vis_radius_cells_; i <= startPoint.first + vis_radius_cells_; i++)
-    {
-      for (int j = startPoint.second - vis_radius_cells_; j <= startPoint.second + vis_radius_cells_; j++)
-      {
-        if (!isIndexValid(i, j))
-        {
-          continue;
-        }
-        if (!(explored_)(i, j) || (traversability_expanded_(i, j) == -1.0))
-        {
-          continue;
-        }
-        pairf xy_coordinate = indexToPosition(pairs(i, j));
-        float coordinateX = xy_coordinate.first;
-        float coordinateY = xy_coordinate.second;
-        pcl::PointXYZI p(traversability_expanded_(i, j) > slope_th_);
-        p.x = coordinateX;
-        p.y = coordinateY;
-        p.z = 0;
-        pointCloudTravExp->insert(pointCloudTravExp->end(), p);
-      }
-    }
-
-    pcl::toPCLPointCloud2(*pointCloudTravExp, pcl_pc);
-    pcl_conversions::fromPCL(pcl_pc, output);
-
-    // Publish the data
-    pub_travers_expanded_.publish(output);
-
-    std::vector<pairs> resulting_path;
-    if (interest_points.size() > 0)
-    {
-      pairs chosen_point = choose_point(interest_points);
-      if (chosen_point.first < 0)
-      {
-        std::cout << "No exploration points left!" << std::endl;
-      }
-      else
-      {
-        resulting_path = plan(startPoint, chosen_point, 10, optimalPlanner::PLANNER_RRTSTAR, planningObjective::OBJECTIVE_WEIGHTEDCOMBO, traversability_expanded_, explored_, slope_th_);
-      }
-    }
-    if (resulting_path.size() > 0)
-    {
-      nav_msgs::Path path;
-      path.header = output.header;
-
-      std::vector<geometry_msgs::PoseStamped> poses;
-      int seq = 0;
-      for (auto &xy_ind : resulting_path)
-      {
-        seq++;
-        pairf xy_coordinate = indexToPosition(xy_ind);
-        geometry_msgs::PoseStamped *pose = new geometry_msgs::PoseStamped();
-        pose->header = output.header;
-        pose->header.seq = seq;
-        geometry_msgs::Pose posee;
-        geometry_msgs::Quaternion orientation;
-        orientation.w = 0;
-        orientation.x = 0;
-        orientation.y = 0;
-        orientation.z = 0;
-        posee.orientation = orientation;
-        geometry_msgs::Point point;
-        point.x = xy_coordinate.first;
-        point.y = xy_coordinate.second;
-        point.z = 0;
-        posee.position = point;
-        pose->pose = posee;
-        poses.push_back(*pose);
-      }
-      path.poses = poses;
-
-      // // Publish the data
-      pub_path_.publish(path);
-    }
-
-    map_used_ = false;
-    return true;
-  }
-   
+ 
   bool detect_frontiers()
   {
     std::cout << "Finding frontiers!" << std::endl;
@@ -654,67 +445,6 @@ public:
 
     current_interest_points_ = interest_points;
 
-
-    // sensor_msgs::PointCloud2 output;
-    // PointCloudType::Ptr pointCloudFrontier(new PointCloudType);
-
-    // pointCloudFrontier->header.frame_id = map_frame_;
-    // pointCloudFrontier->header.stamp = ros::Time::now().toNSec() / 1000;
-
-    // int i = 0;
-    // for (auto &p : interest_points)
-    // {
-    //   i++;
-    //   // for (auto& p: f){
-    //   pairf xy = indexToPosition(p);
-    //   pcl::PointXYZI pt(float(i) / float(frontiers.size()));
-    //   pt.x = xy.first;
-    //   pt.y = xy.second;
-    //   pt.z = 0;
-    //   pointCloudFrontier->insert(pointCloudFrontier->end(), pt);
-    //   // }
-    // }
-
-    // pcl::PCLPointCloud2 pcl_pc;
-    // pcl::toPCLPointCloud2(*pointCloudFrontier, pcl_pc);
-    // pcl_conversions::fromPCL(pcl_pc, output);
-    // pub_frontier_.publish(output);
-
-    // // publish expanded frontier
-
-    // PointCloudType::Ptr pointCloudTravExp(new PointCloudType);
-    // pointCloudTravExp->header.frame_id = map_frame_;
-    // pointCloudTravExp->header = pointCloudFrontier->header;
-
-    // for (int i = startPoint.first - vis_radius_cells_; i <= startPoint.first + vis_radius_cells_; i++)
-    // {
-    //   for (int j = startPoint.second - vis_radius_cells_; j <= startPoint.second + vis_radius_cells_; j++)
-    //   {
-    //     if (!isIndexValid(i, j))
-    //     {
-    //       continue;
-    //     }
-    //     if (!(explored_)(i, j) || (traversability_expanded_(i, j) == -1.0))
-    //     {
-    //       continue;
-    //     }
-    //     pairf xy_coordinate = indexToPosition(pairs(i, j));
-    //     float coordinateX = xy_coordinate.first;
-    //     float coordinateY = xy_coordinate.second;
-    //     pcl::PointXYZI p(traversability_expanded_(i, j) > slope_th_);
-    //     p.x = coordinateX;
-    //     p.y = coordinateY;
-    //     p.z = 0;
-    //     pointCloudTravExp->insert(pointCloudTravExp->end(), p);
-    //   }
-    // }
-
-    // pcl::toPCLPointCloud2(*pointCloudTravExp, pcl_pc);
-    // pcl_conversions::fromPCL(pcl_pc, output);
-
-    // // Publish the data
-    // pub_travers_expanded_.publish(output);
-
     if (interest_points.size() > 0)
     {
       pairs chosen_point = choose_point(interest_points);
@@ -727,40 +457,6 @@ public:
         current_path_ = plan(startPoint, chosen_point, 10, optimalPlanner::PLANNER_RRTSTAR, planningObjective::OBJECTIVE_WEIGHTEDCOMBO, traversability_expanded_, explored_, slope_th_);
       }
     }
-    // if (resulting_path.size() > 0)
-    // {
-    //   nav_msgs::Path path;
-    //   path.header = output.header;
-
-    //   std::vector<geometry_msgs::PoseStamped> poses;
-    //   int seq = 0;
-    //   for (auto &xy_ind : resulting_path)
-    //   {
-    //     seq++;
-    //     pairf xy_coordinate = indexToPosition(xy_ind);
-    //     geometry_msgs::PoseStamped *pose = new geometry_msgs::PoseStamped();
-    //     pose->header = output.header;
-    //     pose->header.seq = seq;
-    //     geometry_msgs::Pose posee;
-    //     geometry_msgs::Quaternion orientation;
-    //     orientation.w = 0;
-    //     orientation.x = 0;
-    //     orientation.y = 0;
-    //     orientation.z = 0;
-    //     posee.orientation = orientation;
-    //     geometry_msgs::Point point;
-    //     point.x = xy_coordinate.first;
-    //     point.y = xy_coordinate.second;
-    //     point.z = 0;
-    //     posee.position = point;
-    //     pose->pose = posee;
-    //     poses.push_back(*pose);
-    //   }
-    //   path.poses = poses;
-
-    //   // // Publish the data
-    //   pub_path_.publish(path);
-    // }
 
     return true;
   }
@@ -777,13 +473,6 @@ public:
     float x = (position.first - n_cells1_ / 2) * resolution_ + origin1_;
     float y = (position.second - n_cells2_ / 2) * resolution_ + origin2_;
     return pairf(x, y);
-  }
-
-  std::vector<pairs> get_path(pairs start_index, pairs end_index)
-  {
-    std::vector<pairs> path;
-
-    return path;
   }
 
   pairs get_interest_point(std::vector<pairs> &frontier)

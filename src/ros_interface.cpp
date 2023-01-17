@@ -41,10 +41,13 @@ public:
     {
         tf_buffer_ = new tf2_ros::Buffer();
         transformListener_ = new tf2_ros::TransformListener(*tf_buffer_);
-        mapper_ = new ElevationMapper(nodeHandle, privateNodeHandle);
+
+        readPearameters();
+        float robotPosition[3];
+        getRobotPosition3D(robotPosition, 20.0);
+        mapper_ = new ElevationMapper(nodeHandle, privateNodeHandle, robotPosition);
 
         initTimeMs = ros::Time::now().toNSec() / 1000000;
-        readPearameters();
         initializeInterface();
     }
     ~ElevationMapperRos()
@@ -163,14 +166,14 @@ private:
         return answer;
     }
 
-    void getRobotPosition3D(std::string fixed_frame, std::string target_frame, float *output)
+    void getRobotPosition3D(std::string fixed_frame, std::string target_frame, float *output, float duration = 5.0)
     {
         geometry_msgs::TransformStamped transformTf;
         ros::Time timeStamp;
         timeStamp.fromSec(0.0);
         try
         {
-            transformTf = tf_buffer_->lookupTransform(map_frame_, init_submap_frame_, timeStamp, ros::Duration(5.0));
+            transformTf = tf_buffer_->lookupTransform(fixed_frame, target_frame, timeStamp, ros::Duration(duration));
         }
         catch (tf::TransformException &ex)
         {
@@ -194,6 +197,11 @@ private:
         }
 
         return;
+    }
+
+    void getRobotPosition3D(float *output, float duration = 5.0)
+    {
+        getRobotPosition3D(map_frame_, init_submap_frame_, output, duration);
     }
 
     void cloud_cb(const sensor_msgs::PointCloud2ConstPtr &pointCloudMsg)
