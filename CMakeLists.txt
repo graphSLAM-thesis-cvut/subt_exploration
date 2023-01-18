@@ -159,6 +159,11 @@ target_link_libraries(odom_to_tf_transform
   ${catkin_LIBRARIES}
 )
 
+add_executable(odom_from_tf src/odom_from_tf.cpp)
+target_link_libraries(odom_from_tf
+  ${catkin_LIBRARIES}
+)
+
 add_executable(gridmap_to_occupancy src/gridmap_to_occupancy.cpp)
 target_link_libraries(gridmap_to_occupancy
   ${catkin_LIBRARIES}
