@@ -14,19 +14,24 @@ Install other dependencies:
 ```
 rosdep install --from-paths src --ignore-src -r -y
 ```
-Install elevation mapping package: <br>
-https://github.com/ANYbotics/elevation_mapping
-```
-git clone https://github.com/ANYbotics/elevation_mapping 
-git clone git@github.com:ANYbotics/kindr.git 
-git clone git@github.com:ANYbotics/kindr_ros.git
-git clone git@github.com:ANYbotics/message_logger.git
-catkin config --cmake-args -DCMAKE_BUILD_TYPE=Release
 
+## To run simulation:
+```
+roscore
+rosparam set use_sim_time true
+roslaunch subt_exploration simulation_with_gt.launch
+roslaunch subt_exploration my_elevation.launch
+roslaunch subt_exploration rviz.launch
 ```
 
-## For move_base:
-## For exploration:
+## To see how the exploration stack works:
 ```
-git clone git@github.com:rohithjayarajan/frontier_exploration.git
+rosservice call /explore_once
 ```
+if all the frintiers are already planned to, you can clean the memory using:
+```
+rosservice call /clean_visited
+```
+
+## For path following
+For now just ask Seva for a tracker package, cause it's not uploaded anywhere. You can always use your tracker.

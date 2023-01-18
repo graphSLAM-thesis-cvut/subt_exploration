@@ -1,0 +1,32 @@
+<launch>
+  <arg name="robotName" default="COSTAR_HUSKY"/>
+  <arg name="robotConfig" default="COSTAR_HUSKY_SENSOR_CONFIG_1"/>
+  <arg name="worldName" default="simple_cave_01"/>
+  <arg name="circuit" default="cave" />
+
+  <node pkg="subt_exploration" type="run_simulation.sh" args="osrf/subt-virtual-testbed:latest-dynamic cave_circuit.ign circuit:=$(arg circuit) \
+   worldName:=$(arg worldName) \
+   robotName1:=$(arg robotName) \
+   robotConfig1:=$(arg robotConfig) \
+   enableGroundTruth:=true \
+   use_sim_time:=false" 
+   name="subt_sim" output="screen" />
+
+  <include file="$(find subt_exploration)/launch/timed_start.launch">
+      <arg name="start_type" value="roslaunch" />
+      <arg name="time" value="25" />
+      <arg name="pkg" value="subt_exploration" />
+      <arg name="file" value="odom_to_tf_transform" />
+      <!-- <arg name="value" value="0 0 0 0 0 0 COSTAR_HUSKY/odom world 100" /> -->
+  </include>
+    <!-- <include file="$(find atwifr_gazebo)/launch/timed_roslaunch.launch">
+        <arg name="time" value="20" />
+        <arg name="pkg" value="subt_exploration" />
+        <arg name="file" value="icp.launch" />
+    </include> -->
+  <node pkg="subt_exploration" type="odom_to_tf_transform" name="odom_to_tf_transform_node" output="screen"/>
+    
+</launch>
+
+
+
