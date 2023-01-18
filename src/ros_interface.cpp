@@ -30,6 +30,7 @@
 #include "nav_msgs/Path.h"
 
 #include "subt_params.h"
+#include "wavefront_clustering.hpp"
 
 typedef std::pair<int, int> pairs;
 typedef std::pair<float, float> pairf;
@@ -314,6 +315,70 @@ private:
                 points.push_back(std::vector<float>({coordinateX, coordinateY, 0, travers}));
             }
         }
+
+        publish_pcl(points, pub);
+        return true;
+    }
+
+    bool publish_traversability_expanded(Eigen::MatrixXf &trav, pairs start_point, ros::Publisher pub)
+    {
+        std::vector<std::vector<float>> points;
+        std::vector<std::vector<pairs>> clustered_points;
+
+        wf_clustering::cluster_map(trav, mapper_->conf.slope_th_, start_point, mapper_->explored_, clustered_points);
+        
+        if (clustered_points.size() == 0){
+            ROS_INFO("Publishing traversability: Unexpected: nothing is clustered!");
+            return true;
+        }
+        for (size_t i = 0; i < clustered_points[0].size(); i++)
+        {
+            int indexX = clustered_points[0][i].first;
+            int indexY = clustered_points[0][i].second;
+            pairf xy_coordinate = mapper_->indexToPosition(pairs(indexX, indexY));
+            float coordinateX = xy_coordinate.first;
+            float coordinateY = xy_coordinate.second;
+            float travers = float(trav(indexX, indexY) > mapper_->conf.slope_th_);
+            points.push_back(std::vector<float>({coordinateX, coordinateY, 0, travers}));
+        }
+        if (clustered_points.size() == 1){
+            ROS_INFO("Publishing traversability: Unexpected: no obstacles clustered!");
+            return true;
+        }
+        for (size_t i = 0; i < clustered_points[1].size(); i++)
+        {
+            int indexX = clustered_points[1][i].first;
+            int indexY = clustered_points[1][i].second;
+            pairf xy_coordinate = mapper_->indexToPosition(pairs(indexX, indexY));
+            float coordinateX = xy_coordinate.first;
+            float coordinateY = xy_coordinate.second;
+            float travers = float(trav(indexX, indexY) > mapper_->conf.slope_th_);
+            points.push_back(std::vector<float>({coordinateX, coordinateY, 0, travers}));
+        }
+        if (clustered_points.size() > 2){
+            ROS_INFO("Publishing traversability: Unexpected: there are more then two cluster!");
+            return true;
+        }
+
+        // for (int i = mapper_->robotIndex.first - conf.vis_radius_cells_; i <= mapper_->robotIndex.first + conf.vis_radius_cells_; i++)
+        // {
+        //     for (int j = mapper_->robotIndex.second - conf.vis_radius_cells_; j <= mapper_->robotIndex.second + conf.vis_radius_cells_; j++)
+        //     {
+        //         if (!mapper_->isIndexValid(i, j))
+        //         {
+        //             continue;
+        //         }
+        //         if (!(mapper_->explored_)(i, j) || ((mapper_->traversability_)(i, j) == -1.0))
+        //         {
+        //             continue;
+        //         }
+        //         pairf xy_coordinate = mapper_->indexToPosition(pairs(i, j));
+        //         float coordinateX = xy_coordinate.first;
+        //         float coordinateY = xy_coordinate.second;
+        //         float travers = float(trav(i, j) > mapper_->conf.slope_th_);
+        //         points.push_back(std::vector<float>({coordinateX, coordinateY, 0, travers}));
+        //     }
+        // }
 
         publish_pcl(points, pub);
         return true;
