@@ -68,7 +68,7 @@ private:
     // tf::TransformListener transformListener_;
     tf2_ros::Buffer *tf_buffer_;
     tf2_ros::TransformListener *transformListener_;
-    ros::Publisher pub_;
+    ros::Publisher pub_elevation_;
     ros::Publisher pub_trav_;
     ros::Publisher pub_pcl_gl_;
     ros::Publisher pub_frontier_;
@@ -79,6 +79,7 @@ private:
     ros::Subscriber sub_;
 
     ros::ServiceServer service;
+    ros::ServiceServer service2;
 
     uint32_t initTimeMs;
     ros::Time last_update;
@@ -96,7 +97,7 @@ private:
     {
         sub_ = nodeHandle_.subscribe(conf.pcl_topic_, 1, &ElevationMapperRos::cloud_cb, this);
         // Create a ROS publisher for the output point cloud
-        pub_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(conf.out_pcl_topic_, 1);
+        pub_elevation_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(conf.out_pcl_topic_, 1);
         pub_trav_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(conf.travers_topic_, 1);
         pub_pcl_gl_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(conf.transformed_pcl_topic_, 1);
         pub_frontier_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(conf.frontiers_topic_, 1);
@@ -106,6 +107,8 @@ private:
         pub_clearity_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(conf.clearity_topic_, 1);
 
         service = nodeHandle_.advertiseService("explore_once", &ElevationMapperRos::explore_once_cb, this);
+
+        service2 = nodeHandle_.advertiseService("clean_visited", &ElevationMapperRos::clean_visited, this);
         std::cout << "Interface initialized" << std::endl;
         return true;
     }
@@ -152,22 +155,36 @@ private:
 
     bool explore_once_cb(std_srvs::Empty::Request &request, std_srvs::Empty::Response &response)
     {
+
+        ROS_INFO("EO 1");
         mapper_->updateRobotPosition(getRobotPosition2D());
         mapper_->map_used_ = true;
+
+        ROS_INFO("EO 2");
 
         mapper_->detectFrontiers();
         publish_traversability(mapper_->traversability_expanded_, pub_travers_expanded_);
 
+
+        ROS_INFO("EO 3");
         mapper_->detectInterestPoints();
         publish_interest_points();
 
+
+        ROS_INFO("EO 4");
         mapper_->planToInterestPoint();
         publish_traversability(mapper_->traversability_expanded_, pub_travers_expanded_plan_);
-        // send the path
         publish_path();
         publish_clearity();
 
         mapper_->map_used_ = false;
+        return true;
+    }
+
+    bool clean_visited(std_srvs::Empty::Request &request, std_srvs::Empty::Response &response)
+    {
+        std::vector<pairf> new_points;
+        mapper_->explored_interest_points_ = new_points;
         return true;
     }
 
@@ -266,11 +283,11 @@ private:
                 float coordinateX = xy_coordinate.first;
                 float coordinateY = xy_coordinate.second;
                 float elev = mapper_->elevation_(i, j);
-                points.push_back(std::vector<float>({coordinateX, coordinateY, 0, elev}));
+                points.push_back(std::vector<float>({coordinateX, coordinateY, elev, 1}));
             }
         }
 
-        publish_pcl(points, pub_);
+        publish_pcl(points, pub_elevation_);
         return true;
     }
 
@@ -286,7 +303,7 @@ private:
                 {
                     continue;
                 }
-                if (!(mapper_->explored_)(i, j) || (trav(i, j) == -1.0))
+                if (!(mapper_->explored_)(i, j) || ((mapper_->traversability_)(i, j) == -1.0))
                 {
                     continue;
                 }

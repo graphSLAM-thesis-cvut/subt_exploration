@@ -81,7 +81,6 @@ public:
 
   bool map_used_ = false;
 
-
   Eigen::MatrixXf elevation_;
   Eigen::MatrixXi elevation_time_estimated_; // To get the highest point from the cell. TODO: maybe substitude with kd-tree ?
   Eigen::MatrixXf current_measurement_;      // To get the highest point from the cell. TODO: maybe substitude with kd-tree ?
@@ -236,7 +235,7 @@ public:
   bool planToInterestPoint()
   {
 
-	  expand(traversability_, traversability_expanded_, explored_, planning_point_.first, planning_point_.second, conf.robot_size_cells_, conf.slope_th_, true);
+    expand(traversability_, traversability_expanded_, explored_, planning_point_.first, planning_point_.second, conf.robot_size_cells_, conf.slope_th_, true);
     std::vector<pairs> path;
     if (current_interest_points_.size() > 0)
     {
@@ -249,7 +248,7 @@ public:
       {
         path = plan(planning_point_, chosen_point, 10, optimalPlanner::PLANNER_RRTSTAR, planningObjective::OBJECTIVE_WEIGHTEDCOMBO, traversability_expanded_, explored_, conf.slope_th_, clearity_);
       }
-    } 
+    }
     current_path_ = path;
     return true;
   }
@@ -300,40 +299,61 @@ public:
 
   pairs get_nearest_traversable_cell(pairs check_cell)
   {
+    int max_iter = 10000;
+    int i = check_cell.first;
+    int j = check_cell.second;
+    if (explored_(i, j) && traversability_(i, j) >= 0 && traversability_expanded_(i, j) < conf.slope_th_ )
+      return check_cell;
 
     std::map<pairs, int> cell_states;
     std::queue<pairs> q_m;
     q_m.push(check_cell);
     cell_states[check_cell] = MAP_OPEN_LIST;
-    int adj_vector[N_S4];
-    int v_neighbours[N_S4];
     //
-    // ROS_INFO("wfd 1");
-    while (!q_m.empty())
+    // ROS_DEBUG("GNTC 1");
+    int count = 0;
+    while (!q_m.empty() && count < max_iter)
     {
-      auto &current_cell = q_m.front();
+      count++;
+
+      //ROS_INFO("GNTC 2");
+      auto current_cell = q_m.front();
       q_m.pop();
-      if (cell_states[current_cell] == MAP_CLOSE_LIST)
-        continue;
 
       int current_i = current_cell.first;
       int current_j = current_cell.second;
       for (int t = 0; t < N_S4; t++)
       {
+
+        //ROS_INFO("GNTC 3");
         int i = current_i + offsetx4[t];
         int j = current_j + offsety4[t];
         auto ij = pairs(i, j);
         if (!isIndexValid(i, j))
+        {
           continue;
+        }
         if (cell_states[ij] == MAP_OPEN_LIST || cell_states[ij] == MAP_CLOSE_LIST)
+        {
           continue;
+          //ROS_INFO("GNTC 4");
+        }
         if (explored_(i, j) && traversability_(i, j) >= 0 && traversability_expanded_(i, j) < conf.slope_th_ && !is_frontier_point(ij))
+        {
+          //ROS_INFO("GNTC 5");
           return pairs(i, j);
+        }
+
+        //ROS_INFO("GNTC 6");
         q_m.push(ij);
         cell_states[ij] = MAP_OPEN_LIST;
       }
+
+      //ROS_INFO("GNTC 7");
       cell_states[current_cell] = MAP_CLOSE_LIST;
     }
+
+    //ROS_INFO("GNTC 8");
     return pairs(-1, -1);
   }
 

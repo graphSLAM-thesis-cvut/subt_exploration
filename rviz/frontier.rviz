@@ -4,14 +4,11 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
-        - /Global Options1
-        - /Status1
-        - /TF1/Frames1
-        - /PointCloud21/Autocompute Value Bounds1
-        - /DepthCloud1/Auto Size1
-        - /PointCloud28
-        - /PointCloud28/Status1
-        - /Path2/Offset1
+        - /RobotTF1/Frames1
+        - /PclCropped1/Autocompute Value Bounds1
+        - /CameraRGBD1/Auto Size1
+        - /Clearity1/Status1
+        - /Path1/Offset1
       Splitter Ratio: 0.6264705657958984
     Tree Height: 1038
   - Class: rviz/Selection
@@ -31,7 +28,7 @@ Panels:
   - Class: rviz/Time
     Name: Time
     SyncMode: 0
-    SyncSource: PointCloud2
+    SyncSource: TravMapBinary
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -92,7 +89,7 @@ Visualization Manager:
           Value: true
       Marker Alpha: 1
       Marker Scale: 1
-      Name: TF
+      Name: RobotTF
       Show Arrows: true
       Show Axes: true
       Show Names: true
@@ -121,42 +118,27 @@ Visualization Manager:
                   {}
       Update Interval: 0
       Value: true
-    - Alpha: 0.30000001192092896
-      Autocompute Intensity Bounds: true
-      Class: grid_map_rviz_plugin/GridMap
-      Color: 200; 200; 200
-      Color Layer: elevation
-      Color Transformer: GridMapLayer
-      Enabled: false
-      Height Layer: elevation
-      Height Transformer: GridMapLayer
-      History Length: 1
-      Invert Rainbow: false
-      Max Color: 255; 255; 255
-      Max Intensity: 10
-      Min Color: 0; 0; 0
-      Min Intensity: 0
-      Name: GridMap
-      Show Grid Lines: true
-      Topic: /elevation_mapping/elevation_map
-      Unreliable: false
-      Use Rainbow: true
-      Value: false
-    - Alpha: 0.699999988079071
-      Class: rviz/Map
-      Color Scheme: map
-      Draw Behind: false
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.10000000149011612
+      Class: rviz/Pose
+      Color: 255; 25; 0
       Enabled: true
-      Name: Map
-      Topic: /trav_map
+      Head Length: 0.30000001192092896
+      Head Radius: 0.10000000149011612
+      Name: MoveBaseSimpleGoal
+      Queue Size: 10
+      Shaft Length: 1
+      Shaft Radius: 0.05000000074505806
+      Shape: Arrow
+      Topic: /move_base_simple/goal
       Unreliable: false
-      Use Timestamp: false
       Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 2.0481820106506348
-        Min Value: -0.15943598747253418
+        Max Value: 2.932126045227051
+        Min Value: -0.2688504457473755
         Value: true
       Axis: Z
       Channel Name: intensity
@@ -168,7 +150,7 @@ Visualization Manager:
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Min Color: 0; 0; 0
-      Name: PointCloud2
+      Name: PclCropped
       Position Transformer: XYZ
       Queue Size: 10
       Selectable: true
@@ -180,84 +162,6 @@ Visualization Manager:
       Use Fixed Frame: true
       Use rainbow: true
       Value: false
-    - Alpha: 1
-      Autocompute Intensity Bounds: true
-      Class: grid_map_rviz_plugin/GridMap
-      Color: 200; 200; 200
-      Color Layer: elevation
-      Color Transformer: GridMapLayer
-      Enabled: false
-      Height Layer: elevation
-      Height Transformer: GridMapLayer
-      History Length: 1
-      Invert Rainbow: false
-      Max Color: 255; 255; 255
-      Max Intensity: 10
-      Min Color: 0; 0; 0
-      Min Intensity: 0
-      Name: GridMap
-      Show Grid Lines: true
-      Topic: /traversability_estimation/traversability_map
-      Unreliable: false
-      Use Rainbow: true
-      Value: false
-    - Alpha: 1
-      Class: rviz/Polygon
-      Color: 25; 255; 0
-      Enabled: false
-      Name: Polygon
-      Queue Size: 10
-      Topic: /traversability_estimation/footprint_polygon
-      Unreliable: false
-      Value: false
-    - Alpha: 1
-      Buffer Length: 1
-      Class: rviz/Path
-      Color: 25; 255; 0
-      Enabled: true
-      Head Diameter: 0.30000001192092896
-      Head Length: 0.20000000298023224
-      Length: 0.30000001192092896
-      Line Style: Billboards
-      Line Width: 0.029999999329447746
-      Name: Path
-      Offset:
-        X: 0
-        Y: 0
-        Z: 0
-      Pose Color: 255; 85; 255
-      Pose Style: None
-      Queue Size: 10
-      Radius: 0.029999999329447746
-      Shaft Diameter: 0.10000000149011612
-      Shaft Length: 0.10000000149011612
-      Topic: /move_base/GlobalPlanner/plan
-      Unreliable: false
-      Value: true
-    - Alpha: 1
-      Axes Length: 1
-      Axes Radius: 0.10000000149011612
-      Class: rviz/Pose
-      Color: 78; 154; 6
-      Enabled: true
-      Head Length: 0.30000001192092896
-      Head Radius: 0.20000000298023224
-      Name: Pose
-      Queue Size: 10
-      Shaft Length: 0.5
-      Shaft Radius: 0.10000000149011612
-      Shape: Arrow
-      Topic: /move_base_simple/goal
-      Unreliable: false
-      Value: true
-    - Class: rviz/MarkerArray
-      Enabled: true
-      Marker Topic: /explore/frontiers
-      Name: MarkerArray
-      Namespaces:
-        {}
-      Queue Size: 100
-      Value: true
     - Alpha: 1
       Auto Size:
         Auto Size Factor: 1
@@ -281,7 +185,7 @@ Visualization Manager:
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Min Color: 0; 0; 0
-      Name: DepthCloud
+      Name: CameraRGBD
       Occlusion Compensation:
         Occlusion Time-Out: 30
         Value: false
@@ -297,8 +201,8 @@ Visualization Manager:
     - Alpha: 0.4000000059604645
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 2.564215660095215
-        Min Value: -0.25598734617233276
+        Max Value: 3.1442160606384277
+        Min Value: -0.5648924112319946
         Value: true
       Axis: Z
       Channel Name: intensity
@@ -310,7 +214,7 @@ Visualization Manager:
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Min Color: 0; 0; 0
-      Name: PointCloud2
+      Name: ElevationMap
       Position Transformer: XYZ
       Queue Size: 10
       Selectable: true
@@ -334,11 +238,11 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: Intensity
       Decay Time: 0
-      Enabled: false
+      Enabled: true
       Invert Rainbow: true
       Max Color: 85; 87; 83
       Min Color: 243; 243; 243
-      Name: PointCloud2
+      Name: TravMapBinary
       Position Transformer: XYZ
       Queue Size: 10
       Selectable: true
@@ -349,35 +253,7 @@ Visualization Manager:
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: false
-      Value: false
-    - Alpha: 1
-      Autocompute Intensity Bounds: true
-      Autocompute Value Bounds:
-        Max Value: 2.890530586242676
-        Min Value: -0.5611174702644348
-        Value: true
-      Axis: Z
-      Channel Name: intensity
-      Class: rviz/PointCloud2
-      Color: 255; 255; 255
-      Color Transformer: AxisColor
-      Decay Time: 3
-      Enabled: false
-      Invert Rainbow: false
-      Max Color: 255; 255; 255
-      Min Color: 0; 0; 0
-      Name: PointCloud2
-      Position Transformer: XYZ
-      Queue Size: 10
-      Selectable: true
-      Size (Pixels): 3
-      Size (m): 0.25
-      Style: Flat Squares
-      Topic: /my_elevation_map/pcl
-      Unreliable: false
-      Use Fixed Frame: true
-      Use rainbow: true
-      Value: false
+      Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -394,7 +270,7 @@ Visualization Manager:
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Min Color: 0; 0; 0
-      Name: PointCloud2
+      Name: InterestPoints
       Position Transformer: XYZ
       Queue Size: 10
       Selectable: true
@@ -422,7 +298,7 @@ Visualization Manager:
       Invert Rainbow: true
       Max Color: 239; 41; 41
       Min Color: 138; 226; 52
-      Name: PointCloud2
+      Name: TravExpandedFrontiers
       Position Transformer: XYZ
       Queue Size: 10
       Selectable: true
@@ -450,7 +326,7 @@ Visualization Manager:
       Invert Rainbow: true
       Max Color: 85; 87; 83
       Min Color: 243; 243; 243
-      Name: PointCloud2
+      Name: TravExpandedPlan
       Position Transformer: XYZ
       Queue Size: 10
       Selectable: true
@@ -478,7 +354,7 @@ Visualization Manager:
       Invert Rainbow: true
       Max Color: 85; 87; 83
       Min Color: 243; 243; 243
-      Name: PointCloud2
+      Name: Clearity
       Position Transformer: XYZ
       Queue Size: 10
       Selectable: true
@@ -542,7 +418,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 49.80381774902344
+      Distance: 18.025774002075195
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -558,9 +434,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.36479777097702026
+      Pitch: 0.30020368099212646
       Target Frame: <Fixed Frame>
-      Yaw: 0.3382754623889923
+      Yaw: 5.876455307006836
     Saved: ~
 Window Geometry:
   Displays:
@@ -579,4 +455,4 @@ Window Geometry:
     collapsed: true
   Width: 2062
   X: 2738
-  Y: 64
+  Y: 27
