@@ -73,8 +73,12 @@ public:
   subt_params::Params conf;
   ros::NodeHandle nodeHandle_;
   ros::NodeHandle pnh_;
+  
 
+  pairs last_requested_index = pairs(-1, -1);
   pairs robotIndex = pairs(-1, -1);
+  pairs planning_point_ = pairs(-1, -1);
+  pairs last_goal = pairs(-1, -1);
 
   uint32_t initTimeMs;
   ros::Time last_update;
@@ -95,7 +99,6 @@ public:
   std::vector<pairs> current_path_;
   std::vector<pairs> current_interest_points_;
   std::vector<std::vector<pairs>> frontiers_;
-  pairs planning_point_;
 
   // ros::ServiceServer service;
 
@@ -200,15 +203,15 @@ public:
     pairs startPoint = get_nearest_traversable_cell(robotPoint);
     planning_point_ = startPoint;
 
-    std::cout << "Robot coordinates: " << startPoint.first << " " << startPoint.second << " " << explored_(startPoint.first, startPoint.first)
-              << " " << traversability_expanded_(startPoint.first, startPoint.first) << std::endl;
-    if (startPoint.first < 0)
+    std::cout << "Robot coordinates: " << planning_point_.first << " " << planning_point_.second << " " << explored_(planning_point_.first, planning_point_.first)
+              << " " << traversability_expanded_(planning_point_.first, planning_point_.first) << std::endl;
+    if (planning_point_.first < 0)
     {
       ROS_ERROR("Could find a traversable cell around robot");
       std::cout << "Could find a traversable cell around robot" << std::endl;
       return false;
     }
-    std::vector<std::vector<pairs>> frontiers = wfd(traversability_, traversability_expanded_, explored_, startPoint.first, startPoint.second, conf.robot_size_cells_, conf.max_frontier_lenght_cells_, conf.min_frontier_size_, conf.slope_th_);
+    std::vector<std::vector<pairs>> frontiers = wfd(traversability_, traversability_expanded_, explored_, planning_point_.first, planning_point_.second, conf.robot_size_cells_, conf.max_frontier_lenght_cells_, conf.min_frontier_size_, conf.slope_th_);
     std::cout << "Found " << frontiers.size() << " frontiers!" << std::endl;
     frontiers_ = frontiers;
     return true;
@@ -240,6 +243,7 @@ public:
     if (current_interest_points_.size() > 0)
     {
       pairs chosen_point = choose_interest_point(current_interest_points_);
+      last_goal = chosen_point;
       if (chosen_point.first < 0)
       {
         std::cout << "No exploration points left!" << std::endl;
@@ -294,7 +298,9 @@ public:
 
   pairs getRobotCell()
   {
-    return robotIndex;
+    // robotIndex = positionToIndex(robotPosition);
+    last_requested_index = robotIndex;
+    return last_requested_index;
   }
 
   pairs get_nearest_traversable_cell(pairs check_cell)

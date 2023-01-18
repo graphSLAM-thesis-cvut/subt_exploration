@@ -12,6 +12,7 @@ namespace subt_params
         std::string out_pcl_topic_ = "elevation";
         std::string transformed_pcl_topic_ = "pcl_glob";
         std::string pcl_topic_ = "COSTAR_HUSKY/points";
+        std::string odom_topic_ = "/odom_gt";
         std::string map_frame_ = "COSTAR_HUSKY/odom";
         std::string init_submap_frame_ = "COSTAR_HUSKY";
         std::string travers_topic_ = "traversability";
@@ -76,6 +77,7 @@ namespace subt_params
         pnh_.getParam("out_pcl_topic", ret.out_pcl_topic_);
         pnh_.getParam("transformed_pcl_topic", ret.transformed_pcl_topic_);
         pnh_.getParam("pcl_topic", ret.pcl_topic_);
+        pnh_.getParam("odom_topic", ret.odom_topic_);
         pnh_.getParam("map_frame", ret.map_frame_);
         pnh_.getParam("init_submap_frame", ret.init_submap_frame_);
         pnh_.getParam("traversability_topic", ret.travers_topic_);
@@ -102,16 +104,17 @@ namespace subt_params
         std::cout << "Update frequency: " << ret.map_update_frequency_ << std::endl;
 
         // std::cout << "" << ret. << std::e
-        std::cout << "out_pcl_topic_: " << ret.out_pcl_topic_ << std::endl;
-        std::cout << "transformed_pcl_topic_: " << ret.transformed_pcl_topic_ << std::endl;
-        std::cout << "pcl_topic_: " << ret.pcl_topic_ << std::endl;
-        std::cout << "map_frame_: " << ret.map_frame_ << std::endl;
-        std::cout << "init_submap_frame_: " << ret.init_submap_frame_ << std::endl;
-        std::cout << "travers_topic_: " << ret.travers_topic_ << std::endl;
-        std::cout << "frontiers_topic_: " << ret.frontiers_topic_ << std::endl;
-        std::cout << "travers_expanded_topic_: " << ret.travers_expanded_topic_ << std::endl;
-        std::cout << "clearity_topic_: " << ret.clearity_topic_ << std::endl;
-        std::cout << "path_topic_: " << ret.path_topic_ << std::endl;
+        std::cout << "out_pcl_topic: " << ret.out_pcl_topic_ << std::endl;
+        std::cout << "transformed_pcl_topic: " << ret.transformed_pcl_topic_ << std::endl;
+        std::cout << "pcl_topic: " << ret.pcl_topic_ << std::endl;
+        std::cout << "odom_topic: " << ret.odom_topic_ << std::endl;
+        std::cout << "map_frame: " << ret.map_frame_ << std::endl;
+        std::cout << "init_submap_frame: " << ret.init_submap_frame_ << std::endl;
+        std::cout << "travers_topic: " << ret.travers_topic_ << std::endl;
+        std::cout << "frontiers_topic: " << ret.frontiers_topic_ << std::endl;
+        std::cout << "travers_expanded_topic: " << ret.travers_expanded_topic_ << std::endl;
+        std::cout << "clearity_topic: " << ret.clearity_topic_ << std::endl;
+        std::cout << "path_topic: " << ret.path_topic_ << std::endl;
 
         ret.n_cells1_ = int(ret.size1_ / ret.resolution_);
         ret.n_cells2_ = int(ret.size2_ / ret.resolution_);
@@ -124,10 +127,10 @@ namespace subt_params
         std::cout << "n_cells1: " << ret.n_cells1_ << std::endl;
         std::cout << "n_cells2: " << ret.n_cells2_ << std::endl;
         std::cout << "vis_radius_cells: " << ret.vis_radius_cells_ << std::endl;
-        std::cout << "robot_size_cells_: " << ret.robot_size_cells_ << std::endl;
-        std::cout << "max_frontier_lenght_cells_: " << ret.max_frontier_lenght_cells_ << std::endl;
-        std::cout << "min_frontier_size_: " << ret.min_frontier_size_ << std::endl;
-        std::cout << "explored_point_radius_cells_: " << ret.explored_point_radius_cells_ << std::endl;
+        std::cout << "robot_size_cells: " << ret.robot_size_cells_ << std::endl;
+        std::cout << "max_frontier_lenght_cells: " << ret.max_frontier_lenght_cells_ << std::endl;
+        std::cout << "min_frontier_size: " << ret.min_frontier_size_ << std::endl;
+        std::cout << "explored_point_radius_cells: " << ret.explored_point_radius_cells_ << std::endl;
 
         // change degrees to rads
         // ret.ang_max = M_PI*ret.ang_max/180.0;

@@ -47,11 +47,12 @@ public:
 
         readPearameters();
         float robotPosition[3];
-        getRobotPosition3D(robotPosition, 20.0);
-        mapper_ = new ElevationMapper(nodeHandle, privateNodeHandle, robotPosition, conf);
+        // getRobotPosition3D(robotPosition, 20.0);
 
         initTimeMs = ros::Time::now().toNSec() / 1000000;
-        initializeInterface();
+        // initializeInterface();
+        sub_odom_ = nodeHandle_.subscribe(conf.odom_topic_, 1, &ElevationMapperRos::odom_cb, this);
+        ROS_INFO("Waiting for first odometry message...");
     }
     ~ElevationMapperRos()
     {
@@ -77,13 +78,20 @@ private:
     ros::Publisher pub_travers_expanded_plan_;
     ros::Publisher pub_path_;
     ros::Publisher pub_clearity_;
+    ros::Publisher pub_robot_start_;
+
     ros::Subscriber sub_;
+    ros::Subscriber sub_odom_;
 
     ros::ServiceServer service;
     ros::ServiceServer service2;
 
+    float robot_position[3];
+
     uint32_t initTimeMs;
     ros::Time last_update;
+
+    bool odom_received = false;
 
     // methods
 
@@ -106,6 +114,7 @@ private:
         pub_travers_expanded_plan_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(conf.travers_expanded_plan_topic_, 1);
         pub_path_ = nodeHandle_.advertise<nav_msgs::Path>(conf.path_topic_, 1);
         pub_clearity_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(conf.clearity_topic_, 1);
+        pub_robot_start_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>("nearest_point", 1);
 
         service = nodeHandle_.advertiseService("explore_once", &ElevationMapperRos::explore_once_cb, this);
 
@@ -114,13 +123,33 @@ private:
         return true;
     }
 
+    void odom_cb(const nav_msgs::Odometry &odometryMsg)
+    {
+        
+        float x = odometryMsg.pose.pose.position.x;
+        float y = odometryMsg.pose.pose.position.y;
+        float z = odometryMsg.pose.pose.position.z;
+        robot_position[0] = x;
+        robot_position[1] = y;
+        robot_position[2] = z;
+
+        if (!odom_received){
+            mapper_ = new ElevationMapper(nodeHandle_, pnh_, robot_position, conf);
+            ROS_INFO("Received first odometry message!");
+            odom_received = true;
+            initializeInterface();
+        }
+
+        mapper_->updateRobotPosition(pairf(x, y));
+    }
+
     void cloud_cb(const sensor_msgs::PointCloud2ConstPtr &pointCloudMsg)
     {
         if (mapper_->map_used_){
             return;
             std::cout << "Skipping update as the map is being used" << std::endl;
         }
-        mapper_->updateRobotPosition(getRobotPosition2D());
+        // mapper_->updateRobotPosition(getRobotPosition2D());
 
         if (ros::Time::now() < last_update) // for going back in time - rosbag file
             last_update = ros::Time::now();
@@ -158,7 +187,6 @@ private:
     {
 
         ROS_INFO("EO 1");
-        mapper_->updateRobotPosition(getRobotPosition2D());
         mapper_->map_used_ = true;
 
         ROS_INFO("EO 2");
@@ -178,6 +206,8 @@ private:
         publish_path();
         publish_clearity();
 
+        publish_robot_positions();
+
         mapper_->map_used_ = false;
         return true;
     }
@@ -189,52 +219,6 @@ private:
         return true;
     }
 
-    pairf getRobotPosition2D()
-    {
-        pairs answer(-1, -1);
-        float coord3D[3];
-        getRobotPosition3D(conf.map_frame_, conf.init_submap_frame_, coord3D);
-        answer = pairf(coord3D[0], coord3D[1]);
-        return answer;
-    }
-
-    void getRobotPosition3D(std::string fixed_frame, std::string target_frame, float *output, float duration = 5.0)
-    {
-        geometry_msgs::TransformStamped transformTf;
-        ros::Time timeStamp;
-        timeStamp.fromSec(0.0);
-        try
-        {
-            transformTf = tf_buffer_->lookupTransform(fixed_frame, target_frame, timeStamp, ros::Duration(duration));
-        }
-        catch (tf::TransformException &ex)
-        {
-            ROS_ERROR("%s", ex.what());
-            std::cerr << "Failed to get a transform" << std::endl;
-            return;
-        }
-        float x_coord = transformTf.transform.translation.x;
-        float y_coord = transformTf.transform.translation.y;
-        float z_coord = transformTf.transform.translation.z;
-
-        try
-        {
-            output[0] = x_coord;
-            output[1] = y_coord;
-            output[2] = z_coord;
-        }
-        catch (std::exception &e)
-        {
-            std::cerr << "could not assign values to the output array : " << e.what() << std::endl;
-        }
-
-        return;
-    }
-
-    void getRobotPosition3D(float *output, float duration = 5.0)
-    {
-        getRobotPosition3D(conf.map_frame_, conf.init_submap_frame_, output, duration);
-    }
 
     bool transformPointCloud(const PointCloudType::ConstPtr pointCloud, PointCloudType::Ptr &pointCloudTransformed)
     {
@@ -360,26 +344,6 @@ private:
             return true;
         }
 
-        // for (int i = mapper_->robotIndex.first - conf.vis_radius_cells_; i <= mapper_->robotIndex.first + conf.vis_radius_cells_; i++)
-        // {
-        //     for (int j = mapper_->robotIndex.second - conf.vis_radius_cells_; j <= mapper_->robotIndex.second + conf.vis_radius_cells_; j++)
-        //     {
-        //         if (!mapper_->isIndexValid(i, j))
-        //         {
-        //             continue;
-        //         }
-        //         if (!(mapper_->explored_)(i, j) || ((mapper_->traversability_)(i, j) == -1.0))
-        //         {
-        //             continue;
-        //         }
-        //         pairf xy_coordinate = mapper_->indexToPosition(pairs(i, j));
-        //         float coordinateX = xy_coordinate.first;
-        //         float coordinateY = xy_coordinate.second;
-        //         float travers = float(trav(i, j) > mapper_->conf.slope_th_);
-        //         points.push_back(std::vector<float>({coordinateX, coordinateY, 0, travers}));
-        //     }
-        // }
-
         publish_pcl(points, pub);
         return true;
     }
@@ -409,6 +373,20 @@ private:
         }
 
         publish_pcl(points, pub_clearity_);
+        return true;
+    }
+
+    bool publish_robot_positions()
+    {
+        std::vector<std::vector<float>> points;
+        pairf position = mapper_->indexToPosition(mapper_->last_requested_index);
+        pairf position_plan = mapper_->indexToPosition(mapper_->planning_point_);
+        pairf goal = mapper_->indexToPosition(mapper_->last_goal);
+        points.push_back(std::vector<float>({position.first, position.second, 0.2, 1}));
+        points.push_back(std::vector<float>({position_plan.first, position_plan.second, 0.25, 0.5}));
+        points.push_back(std::vector<float>({goal.first, goal.second, 0.15, 0.75}));
+
+        publish_pcl(points, pub_robot_start_);
         return true;
     }
 
