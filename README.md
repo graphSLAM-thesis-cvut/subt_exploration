@@ -1,5 +1,6 @@
 # subt exploration
 Subterranean exploration project in ROS
+![logo](https://github.com/graphSLAM-thesis-cvut/subt_exploration/blob/main/media/logo.jpg)
 # Dependencies
 ## For simulation
 You need to have Nvidia VGA to be able to run simulation <br> 
