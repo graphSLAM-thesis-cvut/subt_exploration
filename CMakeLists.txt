@@ -149,7 +149,7 @@ include_directories(
   SYSTEM
     ${catkin_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIR}
-    ${OMPL_INCLUDE_DIR}
+    ${OMPL_INCLUDE_DIRS}
 )
 add_definitions(${EIGEN_DEFINITIONS})
 add_definitions(${OMPL_DEFINITIONS})

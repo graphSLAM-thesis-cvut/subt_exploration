@@ -10,7 +10,8 @@ int main(int argc, char** argv) {
 
 	ros::init(argc, argv, "odom_gt_publisher");
 	ros::NodeHandle n;
-	ros::Publisher odom_pub = n.advertise<nav_msgs::Odometry>("odom_gt", 10);
+    ros::NodeHandle pnh("~");
+	ros::Publisher odom_pub = n.advertise<nav_msgs::Odometry>("odom", 10);
 	tf2_ros::Buffer tf_buffer_;
     tf2_ros::TransformListener transformListener_(tf_buffer_);
 
@@ -21,11 +22,6 @@ int main(int argc, char** argv) {
 	double z = 0.0;
 	double th = 0;
 
-	// velocity
-	double vx = 0.4;
-	double vy = 0.0;
-	double vth = 0.4;
-
 	ros::Time current_time;
 	ros::Time last_time;
 	current_time = ros::Time::now();
@@ -34,13 +30,22 @@ int main(int argc, char** argv) {
 	// tf::TransformBroadcaster broadcaster;
 	ros::Rate loop_rate(20);
 
-	// const double degree = M_PI/180;
-
 	// message declarations
 
 	nav_msgs::Odometry prev_odom;
 
 	bool init = true;
+	std::string odomFrame = "odom";
+	std::string baseFrame = "base_link";
+
+	
+	pnh.getParam("odomFrame", odomFrame);
+	pnh.getParam("baseFrame", baseFrame);
+
+	std::cout << "Using Frames:" << std::endl;
+	std::cout << "Odom Frame: " << odomFrame << std::endl;
+	std::cout << "Base Frame: " << baseFrame << std::endl;
+
 
 	while (ros::ok()) {
 		current_time = ros::Time::now(); 
@@ -50,7 +55,7 @@ int main(int argc, char** argv) {
         timeStamp.fromSec(0.0);
         try
         {
-            transformTf = tf_buffer_.lookupTransform("COSTAR_HUSKY/odom", "COSTAR_HUSKY", timeStamp, ros::Duration(5.0));
+            transformTf = tf_buffer_.lookupTransform(odomFrame, baseFrame, timeStamp, ros::Duration(5.0));
         }
         catch (tf::TransformException &ex)
         {
@@ -63,26 +68,11 @@ int main(int argc, char** argv) {
         float z_coord = transformTf.transform.translation.z;
 		ros::Time current_time = transformTf.header.stamp;
 
-		// double dt = (current_time - last_time).toSec();
-		// double delta_x = (vx * cos(th) - vy * sin(th)) * dt;
-		// double delta_y = (vx * sin(th) + vy * cos(th)) * dt;
-		// double delta_th = vth * dt;
-
-		// x += delta_x;
-		// y += delta_y;
-		// th += delta_th;
-
-		// geometry_msgs::Quaternion odom_quat;	
-		// odom_quat = tf::createQuaternionMsgFromRollPitchYaw(0,0,th);
-
-		// update transform
-		// odom_trans.transform.rotation = tf::createQuaternionMsgFromYaw(th);
-
 		//filling the odometry
 		nav_msgs::Odometry odom;
 		odom.header.stamp = current_time;
-		odom.header.frame_id = "COSTAR_HUSKY/odom";
-		odom.child_frame_id = "COSTAR_HUSKY";
+		odom.header.frame_id = odomFrame;
+		odom.child_frame_id = baseFrame;
 
 		// position
 		odom.pose.pose.position.x = x_coord;
@@ -100,8 +90,6 @@ int main(int argc, char** argv) {
 
 		last_time = current_time;
 
-		// publishing the odometry and the new tf
-		// broadcaster.sendTransform(odom_trans);
 		odom_pub.publish(odom);
 
 		loop_rate.sleep();
