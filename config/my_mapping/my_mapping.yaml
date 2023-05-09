@@ -7,6 +7,7 @@ resolution: 0.15
 out_pcl_topic: /my_elevation_map/pcl
 map_frame: COSTAR_HUSKY/odom
 rosbag: false
+odom_topic: /odom_gt
 
 robot_size: 0.6
 

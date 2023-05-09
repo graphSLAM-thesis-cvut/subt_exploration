@@ -22,8 +22,8 @@ rosdep install --from-paths src --ignore-src -r -y
 ./build_docker.sh
 ```
 
-# To run simulation and elevation/traversability mapping
-Before running, you need to install the package with `catkin build` <br/>
+# To run simulation and elevation/traversability mapping with gt localization
+Before running, you need to install the package with `catkin build` <br>
 Afterwards, run:
 ```
 roscore
@@ -33,6 +33,23 @@ rosrun subt_exploration odom_from_tf _odomFrame:=COSTAR_HUSKY/odom _baseFrame:=C
 roslaunch subt_exploration my_elevation.launch
 roslaunch subt_exploration rviz.launch
 ```
+Note that the position is retrieved from the odometry for now. It is needed to install a simulation and run it from docker for everything to work properly. <br/>
+The parameters such as topics, for elevation map, traversability and planning can be found and adjusted in `config/my_mapping/my_mapping.yaml`
+
+# To run simulation and elevation/traversability mapping with liorf localization
+module `thesis` is needed <br>
+Before running, you need to install the package with `catkin build` <br>
+Afterwards, run:
+```
+roscore
+rosparam set use_sim_time true
+roslaunch subt_exploration simulation_with_gt.launch
+roslaunch thesis liorf_subt.launch
+rosrun subt_exploration odom_from_tf _odomFrame:=COSTAR_HUSKY/odom _baseFrame:=COSTAR_HUSKY/base_link odom:=odom_gt
+roslaunch subt_exploration my_elevation.launch
+roslaunch subt_exploration rviz.launch
+```
+(doesn't work right now for some reason)
 Note that the position is retrieved from the odometry for now. It is needed to install a simulation and run it from docker for everything to work properly. <br/>
 The parameters such as topics, for elevation map, traversability and planning can be found and adjusted in `config/my_mapping/my_mapping.yaml`
 

@@ -2,7 +2,7 @@
   <!-- Elevation mapping node -->
 
     <node pkg="nodelet" type="nodelet" name="pcl_manager" args="manager" output="screen" />
-    <arg name="points_window_size" default="4.0"/>
+    <arg name="points_window_size" default="100.0"/>
 
     <!-- Run a passthrough filter to clean NaNs -->
     <node pkg="nodelet" type="nodelet" name="cropbox" args="load pcl/CropBox /pcl_manager" output="screen">
