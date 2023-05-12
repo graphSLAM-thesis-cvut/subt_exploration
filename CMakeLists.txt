@@ -12,9 +12,9 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   nav_msgs
-  grid_map_core
-  grid_map_ros
-  grid_map_msgs
+  # grid_map_core
+  # grid_map_ros
+  # grid_map_msgs
   pcl_conversions
   tf
   tf_conversions
@@ -127,12 +127,12 @@ catkin_package(
 catkin_package(
   INCLUDE_DIRS
   LIBRARIES
-   grid_map_ros
+  #  grid_map_ros
    tf_conversions
   CATKIN_DEPENDS
-    grid_map_core
-    grid_map_ros
-    grid_map_msg
+    # grid_map_core
+    # grid_map_ros
+    # grid_map_msg
     pcl_ros
     pcl_conversions
     tf
@@ -164,10 +164,10 @@ target_link_libraries(odom_from_tf
   ${catkin_LIBRARIES}
 )
 
-add_executable(gridmap_to_occupancy src/gridmap_to_occupancy.cpp)
-target_link_libraries(gridmap_to_occupancy
-  ${catkin_LIBRARIES}
-)
+# add_executable(gridmap_to_occupancy src/gridmap_to_occupancy.cpp)
+# target_link_libraries(gridmap_to_occupancy
+#   ${catkin_LIBRARIES}
+# )
 
 add_executable(my_elevation_mapping src/ros_interface.cpp src/my_elevation_mapping.cpp src/frontier.cpp src/planner.cpp src/wavefront_clustering.cpp)
 target_link_libraries(my_elevation_mapping
