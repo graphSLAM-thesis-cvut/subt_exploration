@@ -64,17 +64,17 @@
   <depend>tf</depend>
   <depend>tf_conversions</depend>
   <depend>eigen</depend>
-  <depend>grid_map_core</depend>
+  <!-- <depend>grid_map_core</depend>
   <depend>grid_map_ros</depend>
   <depend>grid_map_msg</depend>
-  <depend>grid_map</depend>
+  <depend>grid_map</depend> -->
   <!-- movebase dependencies -->
-  <depend>move_base</depend>
+  <!-- <depend>move_base</depend>
   <depend>global_planner</depend>
   <depend>base_local_planner</depend>
-  <depend>dwa_local_planner</depend>
-  <depend>nav_core</depend>
-  <depend>frontier_exploration</depend>
+  <depend>dwa_local_planner</depend> -->
+  <!-- <depend>nav_core</depend> -->
+  <!-- <depend>frontier_exploration</depend> -->
   <depend>teleop_twist_keyboard</depend>
   <depend>pcl_conversions</depend>
   <depend>pcl_ros</depend>
