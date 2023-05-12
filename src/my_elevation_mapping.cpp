@@ -2,11 +2,11 @@
 #include <tf/transform_broadcaster.h>
 #include <tf/transform_listener.h>
 #include <nav_msgs/Odometry.h>
-#include <grid_map_core/GridMap.hpp>
-#include <grid_map_msgs/GridMap.h>
-#include <nav_msgs/OccupancyGrid.h>
-#include <grid_map_ros/GridMapRosConverter.hpp>
-#include "grid_map_core/GridMapMath.hpp"
+// #include <grid_map_core/GridMap.hpp>
+// #include <grid_map_msgs/GridMap.h>
+// #include <nav_msgs/OccupancyGrid.h>
+// #include <grid_map_ros/GridMapRosConverter.hpp>
+// #include "grid_map_core/GridMapMath.hpp"
 
 // Eigen
 #include <Eigen/Core>

@@ -5,7 +5,7 @@
 #include <cstdlib> // Needed for rand()
 #include <ctime>
 #include <queue>
-#include "nav_msgs/OccupancyGrid.h"
+// #include "nav_msgs/OccupancyGrid.h"
 #include <Eigen/Core>
 
 using pairs = std::pair<int, int>;
