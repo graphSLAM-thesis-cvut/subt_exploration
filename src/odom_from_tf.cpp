@@ -48,8 +48,6 @@ int main(int argc, char** argv) {
 
 
 	while (ros::ok()) {
-		current_time = ros::Time::now(); 
-
 		geometry_msgs::TransformStamped transformTf;
         ros::Time timeStamp;
         timeStamp.fromSec(0.0);

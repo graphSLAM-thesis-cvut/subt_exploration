@@ -19,6 +19,15 @@
       <arg name="file" value="static_transform_publisher" />
       <arg name="value" value="0 0 0 0 0 0 COSTAR_HUSKY/odom world 100" />
   </include>
+
+  <include file="$(find subt_exploration)/launch/timed_start.launch">
+      <arg name="start_type" value="rosrun" />
+      <arg name="time" value="26" />
+      <arg name="pkg" value="subt_exploration" />
+      <arg name="file" value="odom_from_tf" />
+      <arg name="value" value="_odomFrame:=COSTAR_HUSKY/odom _baseFrame:=COSTAR_HUSKY/base_link odom:=odom_gt" />
+  </include>
+  
   <!-- <include file="$(find subt_exploration)/launch/timed_start.launch">
       <arg name="start_type" value="rosparam" />
       <arg name="time" value="25" />

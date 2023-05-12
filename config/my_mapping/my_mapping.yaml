@@ -11,6 +11,8 @@ odom_topic: /odom_gt
 
 robot_size: 0.6
 
+followWaypointTimeout: 20
+
 
 init_submap: true
 init_submap_radius: 3.5

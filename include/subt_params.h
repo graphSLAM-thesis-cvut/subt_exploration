@@ -53,6 +53,9 @@ namespace subt_params
         float slope_th_ = 0.1;
 
         int map_update_frequency_ = 50;
+
+
+        int followWaypointTimeout=20;
     };
 
     // ROS loader for the params
@@ -86,6 +89,8 @@ namespace subt_params
         pnh_.getParam("travers_expanded_plan_topic", ret.travers_expanded_plan_topic_);
         pnh_.getParam("clearity_topic", ret.clearity_topic_);
         pnh_.getParam("path_topic", ret.path_topic_);
+        pnh_.getParam("followWaypointTimeout", ret.followWaypointTimeout);
+
 
         std::cout << "origin1: " << ret.origin1_ << std::endl;
         std::cout << "origin2: " << ret.origin2_ << std::endl;
@@ -115,6 +120,7 @@ namespace subt_params
         std::cout << "travers_expanded_topic: " << ret.travers_expanded_topic_ << std::endl;
         std::cout << "clearity_topic: " << ret.clearity_topic_ << std::endl;
         std::cout << "path_topic: " << ret.path_topic_ << std::endl;
+        std::cout << "followWaypointTimeout: " << ret.followWaypointTimeout << std::endl;
 
         ret.n_cells1_ = int(ret.size1_ / ret.resolution_);
         ret.n_cells2_ = int(ret.size2_ / ret.resolution_);

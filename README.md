@@ -29,7 +29,6 @@ Afterwards, run:
 roscore
 rosparam set use_sim_time true
 roslaunch subt_exploration simulation_with_gt.launch
-rosrun subt_exploration odom_from_tf _odomFrame:=COSTAR_HUSKY/odom _baseFrame:=COSTAR_HUSKY/base_link odom:=odom_gt
 roslaunch subt_exploration my_elevation.launch
 roslaunch subt_exploration rviz.launch
 ```
@@ -43,9 +42,8 @@ Afterwards, run:
 ```
 roscore
 rosparam set use_sim_time true
-roslaunch subt_exploration simulation_with_gt.launch
+roslaunch subt_exploration simulation.launch
 roslaunch thesis liorf_subt.launch
-rosrun subt_exploration odom_from_tf _odomFrame:=COSTAR_HUSKY/odom _baseFrame:=COSTAR_HUSKY/base_link odom:=odom_gt
 roslaunch subt_exploration my_elevation.launch
 roslaunch subt_exploration rviz.launch
 ```

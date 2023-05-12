@@ -1,8 +1,8 @@
 <launch>
 
-        <!-- <include file="$(find subt_exploration)/launch/filter_points.launch">
+        <include file="$(find subt_exploration)/launch/filter_points.launch">
                 <arg name="points_window_size" value="20.0"/>
-        </include> -->
+        </include>
 
         <node pkg="subt_exploration" type="my_elevation_mapping" name="my_elevation_mapping_node" output="screen">
                 <rosparam command="load" file="$(find subt_exploration)/config/my_mapping/my_mapping.yaml" />

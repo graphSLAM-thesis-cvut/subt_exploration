@@ -9,7 +9,7 @@
    robotName1:=$(arg robotName) \
    robotConfig1:=$(arg robotConfig) \
    enableGroundTruth:=false \
-   use_sim_time:=false" 
+   use_sim_time:=true" 
    name="subt_sim" output="screen" />
 
   <include file="$(find subt_exploration)/launch/timed_start.launch">
