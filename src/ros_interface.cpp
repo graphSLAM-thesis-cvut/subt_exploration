@@ -28,6 +28,7 @@
 
 #include <std_srvs/Empty.h>
 #include "nav_msgs/Path.h"
+#include "std_msgs/String.h"
 
 #include "subt_params.h"
 #include "wavefront_clustering.hpp"
@@ -68,8 +69,13 @@ public:
 
         initTimeMs = ros::Time::now().toNSec() / 1000000;
         // initializeInterface();
+        pub_text_ = nodeHandle_.advertise<std_msgs::String>("/text_to_speak", 10);
         sub_odom_ = nodeHandle_.subscribe(conf.odom_topic_, 1, &ElevationMapperRos::odom_cb, this);
+
         ROS_INFO("Waiting for first odometry message...");
+
+        // ros::Duration(1).sleep();
+        publish_text("Elevation waits for odometry");
     }
     ~ElevationMapperRos()
     {
@@ -99,6 +105,7 @@ private:
     ros::Publisher pub_path_;
     ros::Publisher pub_clearity_;
     ros::Publisher pub_robot_start_;
+    ros::Publisher pub_text_;
 
     ros::Subscriber sub_;
     ros::Subscriber sub_odom_;
@@ -129,6 +136,22 @@ private:
         return true;
     }
 
+    void publish_text(const std::string& text){
+        std_msgs::String::Ptr msg(new std_msgs::String);
+        msg->data = text;
+        std::cout << "PUBLISHING TEXT: " << msg->data << std::endl;
+        std::cout << "Number of Subscribers: " << pub_text_.getNumSubscribers() << std::endl;
+        int count = 0;
+        while (ros::ok() && !pub_text_.getNumSubscribers() && count < 20)
+        {
+            count ++;
+            std::cout << " Waiting: " << msg->data << std::endl;
+        // Wait for subscribers to connect
+        }
+        pub_text_.publish(msg);
+        ros::spinOnce();
+    }
+
     bool initializeInterface()
     {
         sub_ = nodeHandle_.subscribe(conf.pcl_topic_, 1, &ElevationMapperRos::cloud_cb, this);
@@ -148,7 +171,7 @@ private:
         serviceStartExploration = nodeHandle_.advertiseService("start_exploration", &ElevationMapperRos::start_exploration_cb, this);
         serviceFinishExploration = nodeHandle_.advertiseService("finish_exploration", &ElevationMapperRos::finish_exploration_cb, this);
 
-
+        publish_text("Elevation Initialized!");
         std::cout << "Interface initialized" << std::endl;
         return true;
     }
