@@ -1,0 +1,5 @@
+<launch>
+    <remap from="/tf" to="/tf_seva"/>
+    <arg name="rviz_conf" default="$(find subt_exploration)/rviz/frontier.rviz"/>
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rviz_conf)" />
+</launch>

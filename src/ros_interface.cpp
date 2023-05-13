@@ -32,6 +32,7 @@
 
 #include "subt_params.h"
 #include "wavefront_clustering.hpp"
+#include "unistd.h"
 
 typedef std::pair<int, int> pairs;
 typedef std::pair<float, float> pairf;
@@ -137,19 +138,26 @@ private:
     }
 
     void publish_text(const std::string& text){
+        static bool text_listened=true;
+        if(!text_listened){
+            return;
+        }
         std_msgs::String::Ptr msg(new std_msgs::String);
         msg->data = text;
         std::cout << "PUBLISHING TEXT: " << msg->data << std::endl;
         std::cout << "Number of Subscribers: " << pub_text_.getNumSubscribers() << std::endl;
         int count = 0;
-        while (ros::ok() && !pub_text_.getNumSubscribers() && count < 20)
+        while (ros::ok() && !pub_text_.getNumSubscribers() && count < 5)
         {
             count ++;
             std::cout << " Waiting: " << msg->data << std::endl;
+            sleep(1.0);
         // Wait for subscribers to connect
         }
+        if (count == 5){
+            text_listened = false;
+        }
         pub_text_.publish(msg);
-        ros::spinOnce();
     }
 
     bool initializeInterface()
