@@ -261,6 +261,8 @@ private:
 
     bool explore_once_cb(std_srvs::Empty::Request &request, std_srvs::Empty::Response &response)
     {
+
+        publish_text("Exploration Iteration!");
         lastExplorationTime = ros::Time::now();
         ROS_INFO("EXPLORARION ITERATION %f", lastExplorationTime.toSec());
         state_=PLANNING;
@@ -282,6 +284,11 @@ private:
         mapper_->planToInterestPoint();
         publish_traversability(mapper_->traversability_expanded_, pub_travers_expanded_plan_);
         publish_path();
+        if (mapper_->current_path_.size() > 0){
+            publish_text("Publishing non-empty path");
+        } else {
+            publish_text("Publishing an empty path");
+        }
         publish_clearity();
         state_=FOLLOWING;
 
@@ -296,6 +303,7 @@ private:
 
     bool clean_visited(std_srvs::Empty::Request &request, std_srvs::Empty::Response &response)
     {
+        publish_text("Clean Visited Frontiers Information");
         std::vector<pairf> new_points;
         mapper_->explored_interest_points_ = new_points;
         return true;
