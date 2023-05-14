@@ -142,6 +142,11 @@ public:
     {
       // std::cout << "inserting new measurement ";
       auto &point = pointCloudTransformed->points[i];
+      float rx = indexToPosition(robotIndex).first;
+      float ry = indexToPosition(robotIndex).second;
+      if( std::sqrt((point.x - rx)*(point.x - rx) + (point.y - ry)*(point.y - ry) ) < conf.minRange ){
+        continue;
+      }
 
       // get point index
 

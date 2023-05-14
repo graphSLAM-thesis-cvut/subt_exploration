@@ -56,6 +56,7 @@ namespace subt_params
 
 
         int followWaypointTimeout=20;
+        float minRange = 0.5;
     };
 
     // ROS loader for the params
@@ -90,6 +91,7 @@ namespace subt_params
         pnh_.getParam("clearity_topic", ret.clearity_topic_);
         pnh_.getParam("path_topic", ret.path_topic_);
         pnh_.getParam("followWaypointTimeout", ret.followWaypointTimeout);
+        pnh_.getParam("minRange", ret.minRange);
 
 
         std::cout << "origin1: " << ret.origin1_ << std::endl;
@@ -121,6 +123,7 @@ namespace subt_params
         std::cout << "clearity_topic: " << ret.clearity_topic_ << std::endl;
         std::cout << "path_topic: " << ret.path_topic_ << std::endl;
         std::cout << "followWaypointTimeout: " << ret.followWaypointTimeout << std::endl;
+        std::cout << "minRange: " << ret.minRange << std::endl;
 
         ret.n_cells1_ = int(ret.size1_ / ret.resolution_);
         ret.n_cells2_ = int(ret.size2_ / ret.resolution_);
