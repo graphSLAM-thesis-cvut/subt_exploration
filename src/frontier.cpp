@@ -186,9 +186,24 @@ vector<vector<pairs>> wfd(const Eigen::MatrixXf &h_diffs, Eigen::MatrixXf &h_dif
 	return frontiers;
 }
 
-void expand(const Eigen::MatrixXf &h_diffs, Eigen::MatrixXf &h_diffs_expanded, const Eigen::MatrixXi &explored, int posex, int posey, int robot_size_cells, float travTh, bool unknownIsObstacle = false)
+bool expand(const Eigen::MatrixXf &h_diffs, Eigen::MatrixXf &h_diffs_expanded, const Eigen::MatrixXi &explored, int posex, int posey, int robot_size_cells, float travTh, bool unknownIsObstacle = false)
 {
 	pairs pose_start(posex, posey);
+	if(!(explored(posex, posey) == 1)){
+		return false;
+	}
+	if(!(explored(posex+1, posey) == 1)){
+		return false;
+	}
+	if(!(explored(posex, posey+1) == 1)){
+		return false;
+	}
+	if(!(explored(posex-1, posey) == 1)){
+		return false;
+	}
+	if(!(explored(posex, posey-1) == 1)){
+		return false;
+	}
 	// Eigen::MatrixXf& h_diffs
 	// Cell state list for map/frontier open/closed
 	int map_size = h_diffs.rows() * h_diffs.cols();
@@ -238,6 +253,7 @@ void expand(const Eigen::MatrixXf &h_diffs, Eigen::MatrixXf &h_diffs_expanded, c
 	}
 
 	ROS_INFO("expanded the map's obstacles");
+	return true;
 }
 
 void increase_boudary(const Eigen::MatrixXf &h_diffs, Eigen::MatrixXf &h_diffs_expanded, const Eigen::MatrixXi &explored, int row, int col, int robot_size_cells, std::map<pairs, int> &cell_states)

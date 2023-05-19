@@ -34,8 +34,10 @@ namespace subt_params
         float explored_point_radius_ = 0.5;
         int explored_point_radius_cells_;
 
-        float origin1_ = 0;
-        float origin2_ = 0;
+        float explorationRadius_ = 100;
+
+        float origin1Offset_ = 0;
+        float origin2Offset_ = 0;
 
         int size1_ = 20;
         int size2_ = 20;
@@ -64,8 +66,8 @@ namespace subt_params
     {
         Params ret;
 
-        pnh_.getParam("origin1", ret.origin1_);
-        pnh_.getParam("origin2", ret.origin2_);
+        pnh_.getParam("origin1Offset", ret.origin1Offset_);
+        pnh_.getParam("origin2Offset", ret.origin2Offset_);
         pnh_.getParam("size1", ret.size1_);
         pnh_.getParam("size2", ret.size2_);
         pnh_.getParam("resolution", ret.resolution_);
@@ -92,10 +94,11 @@ namespace subt_params
         pnh_.getParam("path_topic", ret.path_topic_);
         pnh_.getParam("followWaypointTimeout", ret.followWaypointTimeout);
         pnh_.getParam("minRange", ret.minRange);
+        pnh_.getParam("explorationRadius", ret.explorationRadius_);
 
 
-        std::cout << "origin1: " << ret.origin1_ << std::endl;
-        std::cout << "origin2: " << ret.origin2_ << std::endl;
+        std::cout << "origin1Offset: " << ret.origin1Offset_ << std::endl;
+        std::cout << "origin2Offset: " << ret.origin2Offset_ << std::endl;
         std::cout << "size1: " << ret.size1_ << std::endl;
         std::cout << "size2: " << ret.size2_ << std::endl;
         std::cout << "resolution: " << ret.resolution_ << std::endl;
@@ -124,6 +127,7 @@ namespace subt_params
         std::cout << "path_topic: " << ret.path_topic_ << std::endl;
         std::cout << "followWaypointTimeout: " << ret.followWaypointTimeout << std::endl;
         std::cout << "minRange: " << ret.minRange << std::endl;
+        std::cout << "explorationRadius: " << ret.explorationRadius_ << std::endl;
 
         ret.n_cells1_ = int(ret.size1_ / ret.resolution_);
         ret.n_cells2_ = int(ret.size2_ / ret.resolution_);

@@ -5,6 +5,8 @@
 // #include <grid_map_core/GridMap.hpp>
 // #include <grid_map_msgs/GridMap.h>
 #include <nav_msgs/OccupancyGrid.h>
+
+#include <visualization_msgs/Marker.h>
 // #include <grid_map_ros/GridMapRosConverter.hpp>
 // #include "grid_map_core/GridMapMath.hpp"
 
@@ -107,6 +109,7 @@ private:
     ros::Publisher pub_clearity_;
     ros::Publisher pub_robot_start_;
     ros::Publisher pub_text_;
+    ros::Publisher pub_marker_;
 
     ros::Subscriber sub_;
     ros::Subscriber sub_odom_;
@@ -126,7 +129,6 @@ private:
     ros::Time last_update;
     ros::Time lastExplorationTime;
 
-    bool odom_received = false;
 
     // methods
 
@@ -173,6 +175,7 @@ private:
         pub_path_ = nodeHandle_.advertise<nav_msgs::Path>(conf.path_topic_, 1);
         pub_clearity_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(conf.clearity_topic_, 1);
         pub_robot_start_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>("nearest_point", 1);
+        pub_marker_ = nodeHandle_.advertise<visualization_msgs::Marker>("circle_marker", 10);
 
         serviceExploreOnce = nodeHandle_.advertiseService("explore_once", &ElevationMapperRos::explore_once_cb, this);
         serviceCleanVisited = nodeHandle_.advertiseService("clean_visited", &ElevationMapperRos::clean_visited, this);
@@ -193,6 +196,7 @@ private:
         robot_position[1] = y;
         robot_position[2] = z;
 
+        static bool odom_received = false;
         if (!odom_received){
             mapper_ = new ElevationMapper(nodeHandle_, pnh_, robot_position, conf);
             ROS_INFO("Received first odometry message!");
@@ -393,6 +397,7 @@ private:
         }
 
         publish_pcl(points, pub_elevation_);
+        publishCircleMarker();
         return true;
     }
 
@@ -599,6 +604,29 @@ private:
         }
         return true;
     }
+
+    void publishCircleMarker()
+    {
+        static visualization_msgs::Marker marker;
+        marker.header.frame_id = "odom";  
+        marker.type = visualization_msgs::Marker::CYLINDER;
+        marker.action = visualization_msgs::Marker::ADD;
+        marker.pose.position.x = mapper_->startPosition.first + conf.origin1Offset_;  // Set the x-coordinate of the center of the circle
+        marker.pose.position.y = mapper_->startPosition.second + conf.origin2Offset_;  // Set the y-coordinate of the center of the circle
+        marker.pose.position.z = 0.0;  // Set the z-coordinate of the center of the circle
+        marker.pose.orientation.w = 1.0;  // Set the orientation of the circle
+        marker.scale.x = conf.explorationRadius_;  // Set the diameter of the circle (assuming it's a cylinder)
+        marker.scale.y = conf.explorationRadius_;  // Set the diameter of the circle (assuming it's a cylinder)
+        marker.scale.z = 0.2;  // Set a very small height for the cylinder to make it a circle
+        marker.color.a = 0.2;  // Set the alpha value to make the contour visible
+        marker.color.r = 1.0;  // Set the red component of the color
+        marker.color.g = 0.0;  // Set the green component of the color
+        marker.color.b = 0.0;  // Set the blue component of the color
+        marker.header.stamp = ros::Time::now();
+        pub_marker_.publish(marker);
+    }
+
+    
 };
 
 int main(int argc, char **argv)

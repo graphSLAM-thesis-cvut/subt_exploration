@@ -1,6 +1,6 @@
 pcl_topic: /cropbox/output
-origin1: 30
-origin2: -5
+origin1Offset: 30
+origin2Offset: -5
 size1: 500
 size2: 500
 resolution: 0.15
@@ -28,6 +28,7 @@ vis_radius: 50
 max_frontier_length: 5
 min_frontier_length: 1
 explored_point_radius: 0.5
+explorationRadius: 20
 
 map_update_frequency: 100
 

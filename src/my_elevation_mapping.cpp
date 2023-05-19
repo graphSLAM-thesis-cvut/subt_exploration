@@ -55,8 +55,10 @@ public:
   ElevationMapper(ros::NodeHandle nodeHandle, ros::NodeHandle privateNodeHandle, float startPosition[3], subt_params::Params conf) : nodeHandle_(nodeHandle), pnh_(privateNodeHandle)
   {
     this->conf = conf;
+    this->startPosition = pairf(startPosition[0], startPosition[1]);
     initMatricies();
     initTimeMs = ros::Time::now().toNSec() / 1000000;
+
     if (conf.init_submap_)
     {
       bool inited = init_submap(startPosition);
@@ -75,6 +77,7 @@ public:
   ros::NodeHandle pnh_;
   
 
+  pairf startPosition = pairf(-1, -1);
   pairs last_requested_index = pairs(-1, -1);
   pairs robotIndex = pairs(-1, -1);
   pairs planning_point_ = pairs(-1, -1);
@@ -230,8 +233,11 @@ public:
       pairs interest_point = get_interest_point(f);
       auto interest_pt_coord = indexToPosition(interest_point);
       // TODO: make as a parameter!!!
-      if (interest_pt_coord.first < 12)
+      float dx = interest_pt_coord.first - conf.origin1Offset_ - startPosition.first;
+      float dy = interest_pt_coord.first - conf.origin2Offset_ - startPosition.second;
+      if (std::sqrt(dx*dx + dy*dy) > conf.explorationRadius_){
         continue;
+      }
 
       interest_points.push_back(interest_point);
     }
@@ -243,11 +249,17 @@ public:
   bool planToInterestPoint()
   {
 
-    expand(traversability_, traversability_expanded_, explored_, planning_point_.first, planning_point_.second, conf.robot_size_cells_, conf.slope_th_, true);
+    bool expanded = expand(traversability_, traversability_expanded_, explored_, planning_point_.first, planning_point_.second, conf.robot_size_cells_, conf.slope_th_, true);
+    if (! expanded){
+      return false;
+    }
+    ROS_INFO("expanded traversability!");
     std::vector<pairs> path;
     if (current_interest_points_.size() > 0)
     {
+      ROS_INFO("choosing");
       pairs chosen_point = choose_interest_point(current_interest_points_);
+      ROS_INFO("choosen");
       last_goal = chosen_point;
       if (chosen_point.first < 0)
       {
@@ -255,7 +267,10 @@ public:
       }
       else
       {
+
+        ROS_INFO("planning");
         path = plan(planning_point_, chosen_point, 10, optimalPlanner::PLANNER_RRTSTAR, planningObjective::OBJECTIVE_WEIGHTEDCOMBO, traversability_expanded_, explored_, conf.slope_th_, clearity_);
+        ROS_INFO("planned");
       }
     }
     current_path_ = path;
@@ -444,15 +459,15 @@ public:
 
   pairs positionToIndex(pairf position)
   {
-    int i = int((position.first - conf.origin1_) / conf.resolution_) + conf.n_cells1_ / 2;
-    int j = int((position.second - conf.origin2_) / conf.resolution_) + conf.n_cells2_ / 2;
+    int i = int((position.first - conf.origin1Offset_ - startPosition.first) / conf.resolution_) + conf.n_cells1_ / 2;
+    int j = int((position.second - conf.origin2Offset_ - startPosition.second) / conf.resolution_) + conf.n_cells2_ / 2;
     return pairs(i, j);
   }
 
-  pairf indexToPosition(pairs position)
+  pairf indexToPosition(pairs index)
   {
-    float x = (position.first - conf.n_cells1_ / 2) * conf.resolution_ + conf.origin1_;
-    float y = (position.second - conf.n_cells2_ / 2) * conf.resolution_ + conf.origin2_;
+    float x = (index.first - conf.n_cells1_ / 2) * conf.resolution_ + conf.origin1Offset_ + startPosition.first;
+    float y = (index.second - conf.n_cells2_ / 2) * conf.resolution_ + conf.origin2Offset_ + startPosition.second;
     return pairf(x, y);
   }
 
@@ -486,21 +501,31 @@ public:
   {
     for (auto &p : interest_points)
     {
+      ROS_INFO("db1");
       bool suits = true;
       for (auto &ex_p : explored_interest_points_)
       {
+
+        ROS_INFO("db2");
         if (std::sqrt(std::pow(p.first - ex_p.first, 2) + std::pow(p.second - ex_p.second, 2)) < conf.explored_point_radius_cells_)
         {
           suits = false;
           break;
         }
+        ROS_INFO("db3");
       }
       if (suits)
       {
+
+        ROS_INFO("db3");
         explored_interest_points_.push_back(p);
         return p;
       }
+
+        ROS_INFO("db4");
     }
+
+      ROS_INFO("db5");
     return pairs(-1, -1);
   }
 
