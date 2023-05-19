@@ -4,7 +4,10 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
+        - /Global Options1
         - /RobotTF1/Frames1
+        - /Exploration1
+        - /Exploration1/InterestPoints1
       Splitter Ratio: 0.6264705657958984
     Tree Height: 1079
   - Class: rviz/Selection
@@ -55,34 +58,112 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: false
-        COSTAR_HUSKY:
+        base_footprint:
           Value: true
-        COSTAR_HUSKY/base_link:
-          Value: false
-        COSTAR_HUSKY/base_link/camera_front:
-          Value: false
-        COSTAR_HUSKY/base_link/camera_front_optical:
-          Value: false
-        COSTAR_HUSKY/base_link/front_cliff_laser:
-          Value: false
-        COSTAR_HUSKY/base_link/front_laser:
-          Value: false
-        COSTAR_HUSKY/base_link/imu_sensor:
-          Value: false
-        COSTAR_HUSKY/front_left_wheel_link:
-          Value: false
-        COSTAR_HUSKY/front_right_wheel_link:
-          Value: false
-        COSTAR_HUSKY/odom:
-          Value: false
-        COSTAR_HUSKY/rear_left_wheel_link:
-          Value: false
-        COSTAR_HUSKY/rear_right_wheel_link:
-          Value: false
-        simple_cave_01:
-          Value: false
-        world:
-          Value: false
+        base_link:
+          Value: true
+        bullet:
+          Value: true
+        bullet_antenna:
+          Value: true
+        cam1_base:
+          Value: true
+        cam2_base:
+          Value: true
+        camera_0:
+          Value: true
+        camera_1:
+          Value: true
+        camera_2:
+          Value: true
+        camera_3:
+          Value: true
+        camera_accel_frame:
+          Value: true
+        camera_accel_optical_frame:
+          Value: true
+        camera_fisheye1_frame:
+          Value: true
+        camera_fisheye1_optical_frame:
+          Value: true
+        camera_fisheye2_frame:
+          Value: true
+        camera_fisheye2_optical_frame:
+          Value: true
+        camera_gyro_frame:
+          Value: true
+        camera_gyro_optical_frame:
+          Value: true
+        camera_link:
+          Value: true
+        camera_pose_frame:
+          Value: true
+        crystal:
+          Value: true
+        crystal_big:
+          Value: true
+        front_bumper_link:
+          Value: true
+        gps:
+          Value: true
+        imu:
+          Value: true
+        imu_link:
+          Value: true
+        inertial_link:
+          Value: true
+        jetson:
+          Value: true
+        lidar:
+          Value: true
+        mount_base:
+          Value: true
+        odom:
+          Value: true
+        os_imu:
+          Value: true
+        os_lidar:
+          Value: true
+        os_sensor:
+          Value: true
+        ouster_mount:
+          Value: true
+        ouster_mount_top:
+          Value: true
+        payload_frame:
+          Value: true
+        rear_bumper_link:
+          Value: true
+        rear_right_corner:
+          Value: true
+        rs_lidar:
+          Value: true
+        rslidar:
+          Value: true
+        t265_mount:
+          Value: true
+        top_chassis_link:
+          Value: true
+        top_plate_front_link:
+          Value: true
+        top_plate_link:
+          Value: true
+        top_plate_rear_link:
+          Value: true
+        tower:
+          Value: true
+        tower_camera_floor:
+          Value: true
+        tower_cap:
+          Value: true
+        tower_cap_top:
+          Value: true
+        tower_lower_floor:
+          Value: true
+        tower_rear_right_corner:
+          Value: true
+        user_rail_link:
+          Value: true
       Marker Alpha: 1
       Marker Scale: 3
       Name: RobotTF
@@ -90,28 +171,89 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        COSTAR_HUSKY/odom:
-          world:
-            simple_cave_01:
-              COSTAR_HUSKY:
-                COSTAR_HUSKY/base_link:
-                  COSTAR_HUSKY/base_link/camera_front:
-                    COSTAR_HUSKY/base_link/camera_front_optical:
+        odom:
+          base_link:
+            base_footprint:
+              {}
+            bullet:
+              bullet_antenna:
+                {}
+            front_bumper_link:
+              {}
+            gps:
+              {}
+            imu_link:
+              {}
+            inertial_link:
+              {}
+            mount_base:
+              cam1_base:
+                {}
+              cam2_base:
+                {}
+              rs_lidar:
+                lidar:
+                  {}
+                rslidar:
+                  {}
+            payload_frame:
+              {}
+            rear_bumper_link:
+              {}
+            rear_right_corner:
+              tower_rear_right_corner:
+                tower:
+                  tower_camera_floor:
+                    camera_0:
                       {}
-                  COSTAR_HUSKY/base_link/front_cliff_laser:
-                    {}
-                  COSTAR_HUSKY/base_link/front_laser:
-                    {}
-                  COSTAR_HUSKY/base_link/imu_sensor:
-                    {}
-                COSTAR_HUSKY/front_left_wheel_link:
-                  {}
-                COSTAR_HUSKY/front_right_wheel_link:
-                  {}
-                COSTAR_HUSKY/rear_left_wheel_link:
-                  {}
-                COSTAR_HUSKY/rear_right_wheel_link:
-                  {}
+                    camera_1:
+                      {}
+                    camera_2:
+                      {}
+                    camera_3:
+                      {}
+                  tower_cap:
+                    tower_cap_top:
+                      ouster_mount:
+                        ouster_mount_top:
+                          os_sensor:
+                            crystal:
+                              {}
+                            crystal_big:
+                              {}
+                            os_imu:
+                              {}
+                            os_lidar:
+                              {}
+                          t265_mount:
+                            camera_pose_frame:
+                              camera_link:
+                                camera_accel_frame:
+                                  camera_accel_optical_frame:
+                                    {}
+                                camera_fisheye1_frame:
+                                  camera_fisheye1_optical_frame:
+                                    {}
+                                camera_fisheye2_frame:
+                                  camera_fisheye2_optical_frame:
+                                    {}
+                                camera_gyro_frame:
+                                  camera_gyro_optical_frame:
+                                    {}
+                  tower_lower_floor:
+                    imu:
+                      {}
+                    jetson:
+                      {}
+            top_chassis_link:
+              {}
+            top_plate_link:
+              top_plate_front_link:
+                {}
+              top_plate_rear_link:
+                {}
+            user_rail_link:
+              {}
       Update Interval: 0
       Value: true
     - Alpha: 1
@@ -234,8 +376,8 @@ Visualization Manager:
         - Alpha: 0.4000000059604645
           Autocompute Intensity Bounds: true
           Autocompute Value Bounds:
-            Max Value: 2.461312770843506
-            Min Value: -0.05007387325167656
+            Max Value: 1.743497610092163
+            Min Value: -1.3910826444625854
             Value: true
           Axis: Z
           Channel Name: intensity
@@ -399,7 +541,7 @@ Visualization Manager:
           Use Fixed Frame: true
           Use rainbow: false
           Value: true
-      Enabled: false
+      Enabled: true
       Name: Planning
     - Class: rviz/Group
       Displays:
@@ -452,20 +594,28 @@ Visualization Manager:
           Queue Size: 10
           Selectable: true
           Size (Pixels): 3
-          Size (m): 0.30000001192092896
+          Size (m): 1
           Style: Spheres
           Topic: /frontiers
           Unreliable: false
           Use Fixed Frame: true
           Use rainbow: true
           Value: true
-      Enabled: false
+      Enabled: true
       Name: Exploration
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /circle_marker
+      Name: Marker
+      Namespaces:
+        "": true
+      Queue Size: 100
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 255; 255; 255
     Default Light: true
-    Fixed Frame: COSTAR_HUSKY/odom
+    Fixed Frame: odom
     Frame Rate: 30
   Name: root
   Tools:
@@ -489,7 +639,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 20.28671646118164
+      Distance: 227.16392517089844
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -505,9 +655,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.053556203842163
+      Pitch: 1.5585564374923706
       Target Frame: <Fixed Frame>
-      Yaw: 3.82004714012146
+      Yaw: 3.1950554847717285
     Saved: ~
 Window Geometry:
   Displays:
