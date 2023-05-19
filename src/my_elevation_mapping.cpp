@@ -499,8 +499,13 @@ public:
     return pairs(-1, -1);
   }
 
-  void updateRobotPosition(pairf position)
+  bool updateRobotPosition(pairf position)
   {
-    robotIndex = positionToIndex(position);
+    auto possibleIndex = positionToIndex(position);
+    if (is_index_valid(possibleIndex.first, possibleIndex.second, elevation_)){
+      robotIndex = possibleIndex;
+      return true;
+    }
+    return false;
   }
 };

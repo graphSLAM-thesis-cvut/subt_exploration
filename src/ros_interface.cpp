@@ -200,22 +200,33 @@ private:
             initializeInterface();
         }
 
-        mapper_->updateRobotPosition(pairf(x, y));
-        int pathLength = mapper_->current_path_.size();
-        if (pathLength > 0){
-            pairf goal = mapper_->indexToPosition(mapper_->current_path_[pathLength - 1]);
-            if (std::sqrt( (x-goal.first)*(x-goal.first) + (y-goal.second)*(y-goal.second) ) < 0.5  ){
-                state_=REACHED;
-                if (explorationState_==AUTOMATIC){
-                    explore_once();
+        bool positionUpdated = mapper_->updateRobotPosition(pairf(x, y));
+        if (positionUpdated){
+            int pathLength = mapper_->current_path_.size();
+            if (pathLength > 0){
+                pairf goal = mapper_->indexToPosition(mapper_->current_path_[pathLength - 1]);
+                if (std::sqrt( (x-goal.first)*(x-goal.first) + (y-goal.second)*(y-goal.second) ) < 0.5  ){
+                    state_=REACHED;
+                    if (explorationState_==AUTOMATIC){
+                        explore_once();
+                    }
                 }
             }
+            ROS_INFO_THROTTLE(5, "Seconds since last update: %f (THROTTLE 5 seconds). NOW: %f LET: %f", (ros::Time::now() - lastExplorationTime).toSec(), ros::Time::now().toSec(), lastExplorationTime.toSec() );
+            if (((ros::Time::now() - lastExplorationTime).toSec() > conf.followWaypointTimeout) && explorationState_==AUTOMATIC){
+                mapper_->explored_interest_points_.pop_back();
+                explore_once();
+            }
         }
-        ROS_INFO_THROTTLE(5, "Seconds since last update: %f (THROTTLE 5 seconds). NOW: %f LET: %f", (ros::Time::now() - lastExplorationTime).toSec(), ros::Time::now().toSec(), lastExplorationTime.toSec() );
-        if (((ros::Time::now() - lastExplorationTime).toSec() > conf.followWaypointTimeout) && explorationState_==AUTOMATIC){
-            mapper_->explored_interest_points_.pop_back();
-            explore_once();
+        else {
+            // notify about the error every 10 seconds
+            static ros::Time lastWarning(0);
+            if ((ros::Time::now() - lastWarning).toSec() > 10){
+                publish_text("Robot position is out of the map domain. Try to check the localization system!");
+                lastWarning = ros::Time::now();
+            }
         }
+        
         
     }
 

@@ -31,10 +31,6 @@ int main(int argc, char** argv) {
 	ros::Rate loop_rate(20);
 
 	// message declarations
-
-	nav_msgs::Odometry prev_odom;
-
-	bool init = true;
 	std::string odomFrame = "odom";
 	std::string baseFrame = "base_link";
 
